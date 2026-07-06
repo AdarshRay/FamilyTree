@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "family-tree",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "verify-dist",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/private/tmp/claude-501/-Users-adarshray-Documents-Websites-Family-Tree-Claude/56c1a60b-77c1-4956-b97d-e111553a8ae0/scratchpad/dist/serve.py"],
+      "port": 4603
+    }
+  ]
+}

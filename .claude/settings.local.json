@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/adarshray/**)",
+      "Read(//opt/homebrew/**)",
+      "Bash(command -v brew)",
+      "Bash(grep -iE '\\\\.\\(jpg|jpeg|png\\)$')"
+    ]
+  }
+}
