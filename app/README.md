@@ -57,6 +57,17 @@ A person is `P("Name", "m" | "f", "Optional Photo File.jpg")`.
 
 Anyone without a photo automatically shows a glowing initials monogram.
 
+The app also tries same-name photo files automatically. If a person is named
+`Adarsh Ray`, a file named `public/photos/Adarsh Ray.jpg`,
+`Adarsh Ray.jpeg`, `Adarsh Ray.png`, or `Adarsh Ray.webp` will appear without
+editing `family.ts`.
+
+In local development, uploading a photo through **Edit Mode** also writes a
+compressed `Person Name.jpg` file into `public/photos/` and saves that filename
+in the edit data. On a live static host, browsers cannot write files into your
+project folder; use the UI upload for browser-saved edits, or add a backend
+storage service if you want permanent live uploads later.
+
 ## Controls
 
 - **Drag** empty space to pan · **scroll** to zoom toward the cursor

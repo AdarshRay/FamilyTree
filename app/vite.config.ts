@@ -7,6 +7,11 @@ import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
 const permanentEditsFile = fileURLToPath(new URL("./src/data/permanent-edits.json", import.meta.url));
+const publicPhotosDir = fileURLToPath(new URL("./public/photos", import.meta.url));
+
+function safePhotoName(name: string): string {
+  return `${name.trim().replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ")}.jpg`;
+}
 
 function familyEditsWriter(): Plugin {
   return {
@@ -36,6 +41,41 @@ function familyEditsWriter(): Plugin {
             res.end(JSON.stringify({ ok: true }));
           } catch (err) {
             const message = err instanceof Error ? err.message : "Unknown save error";
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ ok: false, message }));
+          }
+        });
+      });
+
+      server.middlewares.use("/__family_tree_photo", (req, res) => {
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end("Method not allowed");
+          return;
+        }
+
+        let body = "";
+        req.setEncoding("utf8");
+        req.on("data", (chunk) => {
+          body += chunk;
+        });
+        req.on("end", async () => {
+          try {
+            const parsed = JSON.parse(body) as { name?: string; photoData?: string };
+            if (!parsed.name?.trim() || !parsed.photoData) throw new Error("Missing name or photo data.");
+
+            const match = /^data:image\/(?:jpeg|jpg);base64,(.+)$/.exec(parsed.photoData);
+            if (!match) throw new Error("Expected a JPEG data URL.");
+
+            const fileName = safePhotoName(parsed.name);
+            await mkdir(publicPhotosDir, { recursive: true });
+            await writeFile(`${publicPhotosDir}/${fileName}`, Buffer.from(match[1], "base64"));
+            server.watcher.add(`${publicPhotosDir}/${fileName}`);
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ ok: true, fileName }));
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown photo save error";
             res.statusCode = 400;
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({ ok: false, message }));
