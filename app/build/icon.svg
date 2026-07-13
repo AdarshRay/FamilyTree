@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="46%" r="58%">
+      <stop offset="0%" stop-color="#163b47"/>
+      <stop offset="48%" stop-color="#07131f"/>
+      <stop offset="100%" stop-color="#020610"/>
+    </radialGradient>
+    <linearGradient id="cyan" x1="22%" y1="18%" x2="78%" y2="88%">
+      <stop offset="0%" stop-color="#e7ffff"/>
+      <stop offset="38%" stop-color="#6ff2ff"/>
+      <stop offset="100%" stop-color="#1689ff"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="20%" y1="22%" x2="80%" y2="82%">
+      <stop offset="0%" stop-color="#f2d6ff"/>
+      <stop offset="45%" stop-color="#b46cff"/>
+      <stop offset="100%" stop-color="#6f4cff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#020610"/>
+  <rect width="1024" height="1024" rx="226" fill="url(#glow)"/>
+  <circle cx="512" cy="512" r="358" fill="none" stroke="#6ff2ff" stroke-width="3" opacity="0.18"/>
+  <circle cx="512" cy="512" r="292" fill="none" stroke="#6ff2ff" stroke-width="7" opacity="0.35"/>
+  <circle cx="512" cy="512" r="357" fill="none" stroke="url(#violet)" stroke-width="15" stroke-linecap="round" stroke-dasharray="18 43" opacity="0.72"/>
+
+  <g filter="url(#softGlow)">
+    <path
+      d="M512 336 V450 M512 450 L394 535 M512 450 L630 535 M394 535 L344 652 M394 535 L444 652 M630 535 L580 652 M630 535 L680 652"
+      fill="none"
+      stroke="url(#cyan)"
+      stroke-width="25"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <circle cx="512" cy="336" r="41" fill="#58eaf5"/>
+    <circle cx="394" cy="535" r="34" fill="#061019" stroke="#6ff2ff" stroke-width="18"/>
+    <circle cx="630" cy="535" r="34" fill="#061019" stroke="#6ff2ff" stroke-width="18"/>
+    <circle cx="344" cy="652" r="30" fill="#061019" stroke="#6ff2ff" stroke-width="16"/>
+    <circle cx="444" cy="652" r="30" fill="#061019" stroke="#6ff2ff" stroke-width="16"/>
+    <circle cx="580" cy="652" r="30" fill="#061019" stroke="#6ff2ff" stroke-width="16"/>
+    <circle cx="680" cy="652" r="30" fill="#061019" stroke="#6ff2ff" stroke-width="16"/>
+  </g>
+</svg>

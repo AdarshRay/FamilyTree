@@ -1,6 +1,9 @@
 node_modules
 dist
 dist-ssr
+release
+build/icon.svg.png
+build/*.iconset
 *.local
 .DS_Store
 .vite

@@ -88,5 +88,6 @@ function familyEditsWriter(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: "./",
   plugins: [familyEditsWriter(), react(), tailwindcss()],
 });
