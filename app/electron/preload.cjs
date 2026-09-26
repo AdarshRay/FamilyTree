@@ -8,6 +8,13 @@ contextBridge.exposeInMainWorld("familyTreeDesktop", {
   backupSnapshot: (snapshot) => ipcRenderer.invoke("family-data:backup", snapshot),
   restoreSnapshot: () => ipcRenderer.invoke("family-data:restore"),
   publishToGitHub: (snapshot) => ipcRenderer.invoke("family-publish:github", snapshot),
+  getAuthRedirectUrl: () => ipcRenderer.invoke("auth:get-redirect-url"),
+  openExternalAuthUrl: (url) => ipcRenderer.invoke("auth:open-external", url),
+  onAuthCallbackUrl: (callback) => {
+    const listener = (_event, url) => callback(url);
+    ipcRenderer.on("auth:callback-url", listener);
+    return () => ipcRenderer.removeListener("auth:callback-url", listener);
+  },
   closeWindow: () => ipcRenderer.invoke("window-control:close"),
   minimizeWindow: () => ipcRenderer.invoke("window-control:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window-control:toggle-maximize"),

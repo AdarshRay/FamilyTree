@@ -1,13 +1,73 @@
 const { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, Menu } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
+const http = require("node:http");
 const path = require("node:path");
 
 const isDev = !app.isPackaged;
 const APP_NAME = "Family Tree";
 const LEGACY_APP_NAME = "The Ray's Family Tree";
+const AUTH_PROTOCOL = "familytree";
+const DEV_AUTH_CALLBACK_PORT = 5187;
+const DEV_AUTH_CALLBACK_PATH = "/auth/callback";
+let pendingAuthCallbackUrl = null;
+let devAuthServer = null;
 
 app.setName(APP_NAME);
+
+function registerAuthProtocol() {
+  if (isDev) return;
+  app.setAsDefaultProtocolClient(AUTH_PROTOCOL);
+}
+
+function authRedirectUrl() {
+  if (isDev) return `http://127.0.0.1:${DEV_AUTH_CALLBACK_PORT}${DEV_AUTH_CALLBACK_PATH}`;
+  return `${AUTH_PROTOCOL}://auth/callback`;
+}
+
+function startDevAuthCallbackServer() {
+  if (!isDev || devAuthServer) return;
+
+  devAuthServer = http.createServer((req, res) => {
+    const requestUrl = new URL(req.url ?? "/", `http://127.0.0.1:${DEV_AUTH_CALLBACK_PORT}`);
+    if (requestUrl.pathname !== DEV_AUTH_CALLBACK_PATH) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Not found");
+      return;
+    }
+
+    sendAuthCallback(requestUrl.toString());
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(`<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Family Tree Login</title></head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; background:#05070d; color:#e6f4ff; display:grid; place-items:center; min-height:100vh; margin:0;">
+    <main style="text-align:center; max-width:480px;">
+      <h1>Family Tree login complete</h1>
+      <p>You can return to the Family Tree Mac app.</p>
+    </main>
+  </body>
+</html>`);
+  });
+
+  devAuthServer.on("error", (err) => {
+    console.warn(`Could not start local auth callback server: ${err.message}`);
+    devAuthServer = null;
+  });
+
+  devAuthServer.listen(DEV_AUTH_CALLBACK_PORT, "127.0.0.1");
+}
+
+function sendAuthCallback(url) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) {
+    pendingAuthCallbackUrl = url;
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.focus();
+  win.webContents.send("auth:callback-url", url);
+}
 
 // Two instances writing family-edits.json at once can silently drop whichever
 // save loses the race, so refuse a second launch and just focus the first.
@@ -16,11 +76,19 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 }
 
-app.on("second-instance", () => {
+app.on("second-instance", (_event, argv) => {
   const win = BrowserWindow.getAllWindows()[0];
-  if (!win) return;
-  if (win.isMinimized()) win.restore();
-  win.focus();
+  const callbackUrl = argv.find((arg) => arg.startsWith(`${AUTH_PROTOCOL}://`));
+  if (callbackUrl) sendAuthCallback(callbackUrl);
+  else if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  sendAuthCallback(url);
 });
 
 function appIconPath() {
@@ -369,6 +437,12 @@ ipcMain.handle("window-control:toggle-maximize", (event) => {
   else win.maximize();
 });
 
+ipcMain.handle("auth:open-external", async (_event, url) => {
+  await shell.openExternal(url);
+});
+
+ipcMain.handle("auth:get-redirect-url", () => authRedirectUrl());
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -394,6 +468,10 @@ function createWindow() {
 
   win.once("ready-to-show", () => {
     win.show();
+    if (pendingAuthCallbackUrl) {
+      sendAuthCallback(pendingAuthCallbackUrl);
+      pendingAuthCallbackUrl = null;
+    }
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -409,6 +487,8 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  registerAuthProtocol();
+  startDevAuthCallbackServer();
   applyDockIcon();
   app.setAboutPanelOptions({
     applicationName: APP_NAME,
@@ -427,4 +507,9 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  devAuthServer?.close();
+  devAuthServer = null;
 });
