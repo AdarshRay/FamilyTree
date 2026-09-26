@@ -2,6 +2,15 @@ import { corsHeaders, handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { env, optionalEnv } from "../_shared/env.ts";
 import { adminClient, requireUser } from "../_shared/supabase.ts";
 
+function validatedReturnTo(value: string): string {
+  const url = new URL(value);
+  const local = url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
+  const production = url.protocol === "https:" && url.origin === "https://adarshray.github.io" && url.pathname.startsWith("/FamilyTree/");
+  const desktop = url.protocol === "familytree:" && url.hostname === "auth";
+  if (!local && !production && !desktop) throw new Error("That return URL is not allowed.");
+  return url.toString();
+}
+
 Deno.serve(async (request) => {
   const options = handleOptions(request);
   if (options) return options;
@@ -12,6 +21,7 @@ Deno.serve(async (request) => {
     const user = await requireUser(request);
     const { returnTo } = (await request.json().catch(() => ({}))) as { returnTo?: string };
     if (!returnTo) throw new Error("Missing return URL.");
+    const safeReturnTo = validatedReturnTo(returnTo);
 
     const state = crypto.randomUUID();
     const fallbackRedirectUrl = new URL(request.url);
@@ -21,7 +31,7 @@ Deno.serve(async (request) => {
     const { error } = await adminClient().from("github_oauth_states").insert({
       state,
       user_id: user.id,
-      return_to: returnTo,
+      return_to: safeReturnTo,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     });
     if (error) throw new Error(error.message);

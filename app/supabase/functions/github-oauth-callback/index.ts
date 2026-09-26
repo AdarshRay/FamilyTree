@@ -4,6 +4,18 @@ import { encryptToken } from "../_shared/crypto.ts";
 import { exchangeCodeForToken, fetchGitHubUser } from "../_shared/github.ts";
 import { optionalEnv } from "../_shared/env.ts";
 
+function validatedReturnTo(value: string, fallback: string): string {
+  try {
+    const url = new URL(value);
+    const local = url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
+    const production = url.protocol === "https:" && url.origin === "https://adarshray.github.io" && url.pathname.startsWith("/FamilyTree/");
+    const desktop = url.protocol === "familytree:" && url.hostname === "auth";
+    return local || production || desktop ? url.toString() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function withParams(returnTo: string, params: Record<string, string>): string {
   const url = new URL(returnTo);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -28,7 +40,7 @@ Deno.serve(async (request) => {
     if (!stateRow) throw new Error("GitHub authorization expired. Please try again.");
 
     await client.from("github_oauth_states").delete().eq("state", state);
-    const returnTo = stateRow.return_to || fallbackReturnTo;
+    const returnTo = validatedReturnTo(stateRow.return_to || fallbackReturnTo, fallbackReturnTo);
     if (new Date(stateRow.expires_at).getTime() < Date.now()) {
       return redirectResponse(withParams(returnTo, { github: "error", message: "GitHub authorization expired." }));
     }

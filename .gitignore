@@ -1,4 +1,10 @@
 .DS_Store
+Family Tree Photos/
+CLAUDE_HANDOFF_PERMANENT_EDITS.md
+HANDOFF_TO_CODEX.md
+MULTI_USER_BACKEND.md
+GITHUB_PUBLISH_BACKEND_PLAN.md
+HANDOFF_TO_CLAUDE_*.md
 node_modules/
 dist/
 *.tsbuildinfo

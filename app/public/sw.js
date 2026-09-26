@@ -1,4 +1,4 @@
-const CACHE_NAME = "family-tree-shell-v1.0.8";
+const CACHE_NAME = "family-tree-shell-v1.0.9-security";
 const SHELL_FILES = ["./", "./manifest.webmanifest", "./icons/app-icon-192.png", "./icons/app-icon-512.png"];
 
 self.addEventListener("install", (event) => {

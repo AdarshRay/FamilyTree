@@ -438,7 +438,9 @@ ipcMain.handle("window-control:toggle-maximize", (event) => {
 });
 
 ipcMain.handle("auth:open-external", async (_event, url) => {
-  await shell.openExternal(url);
+  const parsed = new URL(url);
+  if (parsed.protocol !== "https:") throw new Error("Only secure HTTPS links can be opened.");
+  await shell.openExternal(parsed.toString());
 });
 
 ipcMain.handle("auth:get-redirect-url", () => authRedirectUrl());
@@ -462,7 +464,8 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
     },
   });
 
@@ -475,8 +478,18 @@ function createWindow() {
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === "https:") void shell.openExternal(parsed.toString());
+    } catch {
+      // Ignore malformed or non-web URLs.
+    }
     return { action: "deny" };
+  });
+
+  win.webContents.on("will-navigate", (event, url) => {
+    if (url === win.webContents.getURL()) return;
+    event.preventDefault();
   });
 
   if (isDev) {
