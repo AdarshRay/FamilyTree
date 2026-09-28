@@ -12,6 +12,8 @@ import type { AccountUser, TreeSummary } from "./data/mockAccount";
 import {
   createFamilyTree,
   createAccountWithPassword,
+  deleteFamilyTree,
+  deleteAccount,
   completeSocialProviderRedirect,
   getAuthSession,
   inviteFamilyTreeMember,
@@ -533,6 +535,25 @@ export default function AppRoot() {
     }
   };
 
+  const deleteTree = async (id: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      await deleteFamilyTree(id);
+      setTrees((list) => list.filter((tree) => tree.id !== id));
+      if (activeTreeRef.current?.id === id) {
+        activeTreeRef.current = null;
+        setActiveTree(null);
+      }
+      setSettingsTreeId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete this tree.");
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openTree = async (id: string) => {
     setBusy(true);
     setError("");
@@ -633,6 +654,23 @@ export default function AppRoot() {
     }
   };
 
+  const removeAccount = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await deleteAccount();
+      setUser(null);
+      setTrees([]);
+      setActiveTree(null);
+      setShowAccountSettings(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete your account.");
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <div className="app-shell auth-shell auth-loading">Loading family workspace...</div>;
 
   if (!user) {
@@ -662,6 +700,7 @@ export default function AppRoot() {
         onConnectGithub={() => connectGithub().then(() => undefined)}
         onDisconnectGithub={disconnectGithub}
         onSignOut={signOut}
+        onDeleteAccount={removeAccount}
       />
     );
   }
@@ -749,6 +788,7 @@ export default function AppRoot() {
         onRename={renameTree}
         onOpenSharing={openSharingFromSettings}
         onOpenPublish={openPublish}
+        onDelete={deleteTree}
       />
 
       <PublishWebsiteModal

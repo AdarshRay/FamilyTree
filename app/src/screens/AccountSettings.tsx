@@ -19,6 +19,7 @@ interface Props {
   onConnectGithub: () => Promise<void> | void;
   onDisconnectGithub: () => Promise<void> | void;
   onSignOut: () => void;
+  onDeleteAccount: () => Promise<void> | void;
 }
 
 const PROVIDER_LABEL: Record<AuthProvider, string> = {
@@ -47,8 +48,11 @@ export function AccountSettings({
   onConnectGithub,
   onDisconnectGithub,
   onSignOut,
+  onDeleteAccount,
 }: Props) {
   const [name, setName] = useState(user.name);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   useEffect(() => setName(user.name), [user.name]);
 
@@ -131,6 +135,27 @@ export function AccountSettings({
               </div>
               <span className="settings-connected-tag">Connected</span>
             </div>
+            <div className="settings-row danger-zone">
+              <div className="settings-row-text">
+                <span className="settings-row-title">Delete account</span>
+                <span className="settings-row-sub">Permanently removes your account and every tree you own.</span>
+              </div>
+              <button className="settings-row-action danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>
+                Delete account
+              </button>
+            </div>
+            {confirmingDelete && (
+              <div className="settings-delete-confirm">
+                <p>Type <strong>DELETE</strong> to permanently delete your account.</p>
+                <div className="settings-rename-row">
+                  <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} disabled={busy} autoFocus />
+                  <button className="settings-row-action danger" disabled={busy || deleteConfirmation !== "DELETE"} onClick={() => void Promise.resolve(onDeleteAccount()).catch(() => undefined)}>
+                    Delete permanently
+                  </button>
+                  <button className="settings-row-action" disabled={busy} onClick={() => setConfirmingDelete(false)}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -187,6 +212,21 @@ export function AccountSettings({
               <button className="settings-row-action" onClick={onSignOut}>
                 Sign Out
               </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="dash-section">
+          <div className="settings-card">
+            <div className="settings-row">
+              <div className="settings-row-text">
+                <span className="settings-row-title">Legal &amp; privacy</span>
+                <span className="settings-row-sub">Review how account and family information is handled.</span>
+              </div>
+              <span className="settings-legal-links">
+                <a href="./privacy.html" target="_blank">Privacy</a>
+                <a href="./terms.html" target="_blank">Terms</a>
+              </span>
             </div>
           </div>
         </section>

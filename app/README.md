@@ -22,6 +22,31 @@ npm run build    # type-check + production build into dist/
 npm run preview  # serve the production build locally
 ```
 
+## Web deployment
+
+The production site is built and deployed to GitHub Pages automatically when
+`main` is updated. Configure these repository Actions secrets before the first
+deployment:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+The workflow runs the test suite, dependency audit, and production build before
+deploying `app/dist`. A production build without Supabase configuration stops
+with a visible configuration error instead of creating browser-only accounts.
+
+### Zero-cost guardrails
+
+- Keep the Supabase organization on the Free Plan. Free projects are restricted
+  when quotas are exceeded rather than charged. Do not add a payment method,
+  paid compute, custom domains, PITR, IPv4, read replicas, or other add-ons.
+- Keep this GitHub repository public. The deployment workflow refuses to run if
+  the repository becomes private, and it uses only a standard Ubuntu runner.
+- The workflow has no schedule and a ten-minute timeout, so it runs only for a
+  push to `main` or a deliberate manual deployment.
+- If either provider changes its free-plan terms, leave deployment disabled
+  until the new terms are reviewed.
+
 > Note: this project lives in the `app/` subfolder. The standalone,
 > zero-install `index.html` in the parent folder is a separate CDN-based
 > version you can open by double-clicking — handy when you don't want a build.

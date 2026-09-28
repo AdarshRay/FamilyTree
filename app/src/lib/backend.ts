@@ -648,6 +648,65 @@ export async function renameFamilyTree(treeId: string, name: string): Promise<vo
   persistLocalTrees(trees);
 }
 
+export async function deleteFamilyTree(treeId: string): Promise<void> {
+  const client = supabaseClient();
+
+  if (client) {
+    const { data: userData, error: userError } = await client.auth.getUser();
+    if (userError) throw new Error(userError.message);
+    if (!userData.user) throw new Error("Sign in before deleting a tree.");
+    const { data: membership, error: membershipError } = await client
+      .from("family_tree_members")
+      .select("role")
+      .eq("tree_id", treeId)
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    if (membershipError) throw new Error(membershipError.message);
+    if (membership?.role !== "owner") throw new Error("Only the tree owner can delete this tree.");
+
+    const bucket = client.storage.from("family-tree-photos");
+    for (let offset = 0; ; offset += 1000) {
+      const { data: files, error: listError } = await bucket.list(treeId, { limit: 1000, offset });
+      if (listError) throw new Error(listError.message);
+      if (!files?.length) break;
+      const { error: removeError } = await bucket.remove(files.map((file) => `${treeId}/${file.name}`));
+      if (removeError) throw new Error(removeError.message);
+      if (files.length < 1000) break;
+      // Removal shifts the next page to offset zero.
+      offset = -1000;
+    }
+
+    const { error } = await client.from("family_trees").delete().eq("id", treeId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const session = readJson<AuthSession | null>(SESSION_KEY, null);
+  const tree = localTrees().find((entry) => entry.id === treeId);
+  if (!session || !tree) throw new Error("That family tree could not be found.");
+  if (tree.ownerId !== session.user.id) throw new Error("Only the tree owner can delete this tree.");
+  persistLocalTrees(localTrees().filter((entry) => entry.id !== treeId));
+  persistLocalInvites(localInvites().filter((entry) => entry.treeId !== treeId));
+}
+
+export async function deleteAccount(): Promise<void> {
+  const client = supabaseClient();
+  if (client) {
+    const { error } = await client.functions.invoke("delete-account", { method: "DELETE" });
+    if (error) throw new Error(error.message);
+    await client.auth.signOut({ scope: "local" });
+    return;
+  }
+
+  const session = readJson<AuthSession | null>(SESSION_KEY, null);
+  if (!session) throw new Error("Sign in before deleting your account.");
+  const ownedTreeIds = new Set(localTrees().filter((tree) => tree.ownerId === session.user.id).map((tree) => tree.id));
+  persistLocalTrees(localTrees().filter((tree) => tree.ownerId !== session.user.id));
+  persistLocalInvites(localInvites().filter((invite) => !ownedTreeIds.has(invite.treeId) && invite.acceptedBy !== session.user.id));
+  persistLocalUsers(localUsers().filter((record) => record.user.id !== session.user.id));
+  window.localStorage.removeItem(SESSION_KEY);
+}
+
 export async function createFamilyTree(
   ownerId: string,
   input: CreateFamilyTreeInput,

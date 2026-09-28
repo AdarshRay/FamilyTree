@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -87,7 +87,23 @@ function familyEditsWriter(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  base: "./",
-  plugins: [familyEditsWriter(), react(), tailwindcss()],
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  if (command === "build" && env.VITE_PUBLIC_VIEW !== "1" && (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY)) {
+    throw new Error("Production builds require VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+  }
+  return {
+    base: "./",
+    plugins: [familyEditsWriter(), react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ["react", "react-dom"],
+            supabase: ["@supabase/supabase-js"],
+          },
+        },
+      },
+    },
+  };
 });

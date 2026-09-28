@@ -149,6 +149,9 @@ export function LoginScreen({
               Google {!socialLoginReady && <span className="auth-social-soon">Offline</span>}
             </button>
           </div>
+          <p className="auth-legal">
+            By continuing, you agree to the <a href="./terms.html" target="_blank">Terms</a> and acknowledge the <a href="./privacy.html" target="_blank">Privacy Policy</a>.
+          </p>
         </div>
       </div>
     </div>

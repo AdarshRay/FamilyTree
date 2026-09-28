@@ -19,13 +19,20 @@ interface Props {
   onRename: (id: string, name: string) => Promise<void> | void;
   onOpenSharing: (id: string) => void;
   onOpenPublish: (id: string) => void;
+  onDelete: (id: string) => Promise<void> | void;
 }
 
-export function TreeSettingsModal({ open, tree, publishStatus, busy = false, error = "", onClose, onRename, onOpenSharing, onOpenPublish }: Props) {
+export function TreeSettingsModal({ open, tree, publishStatus, busy = false, error = "", onClose, onRename, onOpenSharing, onOpenPublish, onDelete }: Props) {
   const [name, setName] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   useEffect(() => {
-    if (open && tree) setName(tree.name);
+    if (open && tree) {
+      setName(tree.name);
+      setConfirmingDelete(false);
+      setDeleteConfirmation("");
+    }
   }, [open, tree]);
 
   if (!open || !tree) return null;
@@ -141,10 +148,38 @@ export function TreeSettingsModal({ open, tree, publishStatus, busy = false, err
               <span className="settings-row-title">Delete this tree</span>
               <span className="settings-row-sub">Permanently remove this tree and all its data.</span>
             </div>
-            <button className="settings-row-action danger" disabled title="Coming soon">
-              Delete <em>Soon</em>
+            <button
+              className="settings-row-action danger"
+              disabled={!isOwner || busy}
+              onClick={() => setConfirmingDelete(true)}
+            >
+              Delete
             </button>
           </div>
+          {confirmingDelete && (
+            <div className="settings-delete-confirm">
+              <p>Type <strong>{tree.name}</strong> to confirm. This cannot be undone.</p>
+              <div className="settings-rename-row">
+                <input
+                  className="share-invite-input"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  disabled={busy}
+                  autoFocus
+                />
+                <button
+                  className="settings-row-action danger"
+                  disabled={busy || deleteConfirmation !== tree.name}
+                  onClick={() => void Promise.resolve(onDelete(tree.id)).catch(() => undefined)}
+                >
+                  Delete permanently
+                </button>
+                <button className="settings-row-action" disabled={busy} onClick={() => setConfirmingDelete(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

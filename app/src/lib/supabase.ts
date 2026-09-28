@@ -27,6 +27,11 @@ export function supabaseClient(): SupabaseClient | null {
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    if (import.meta.env.PROD && import.meta.env.VITE_PUBLIC_VIEW !== "1") {
+      throw new Error(
+        "This deployment is missing its Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building.",
+      );
+    }
     cachedClient = null;
     return cachedClient;
   }

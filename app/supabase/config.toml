@@ -1,6 +1,9 @@
 [functions.github-oauth-callback]
 verify_jwt = false
 
+[functions.delete-account]
+verify_jwt = true
+
 [auth]
 additional_redirect_urls = ["http://127.0.0.1:5173/**", "http://localhost:5173/**", "https://adarshray.github.io/FamilyTree/**", "familytree://auth/callback", "http://127.0.0.1:5187/auth/callback"]
 site_url = "https://adarshray.github.io/FamilyTree/"

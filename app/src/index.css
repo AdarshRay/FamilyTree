@@ -4883,3 +4883,14 @@ details.editform[open] > summary.edit-hd {
     transform: none;
   }
 }
+.auth-legal {
+  margin: 18px 0 0;
+  color: rgba(210, 225, 238, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+.auth-legal a, .settings-legal-links a { color: #7eeeff; }
+.settings-legal-links { display: flex; gap: 14px; }
+.settings-delete-confirm { margin-top: 14px; }
+.settings-delete-confirm p { margin: 0 0 10px; color: rgba(235, 242, 248, 0.78); }

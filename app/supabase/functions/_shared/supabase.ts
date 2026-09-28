@@ -24,7 +24,7 @@ export function userClient(request: Request) {
 
 export async function requireUser(request: Request) {
   const { data, error } = await userClient(request).auth.getUser();
-  if (error || !data.user) throw new Error("Sign in before using GitHub publishing.");
+  if (error || !data.user) throw new Error("Sign in before continuing.");
   return data.user;
 }
 
