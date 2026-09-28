@@ -135,8 +135,8 @@ function EditForm({
         photoData: saved.ok ? undefined : data,
         photoStoragePath: saved.storagePath ?? f.photoStoragePath,
       }));
-    } catch {
-      alert("Could not read that image.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not read that image.");
     } finally {
       setBusy(false);
     }
