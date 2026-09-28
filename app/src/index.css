@@ -4894,3 +4894,104 @@ details.editform[open] > summary.edit-hd {
 .settings-legal-links { display: flex; gap: 14px; }
 .settings-delete-confirm { margin-top: 14px; }
 .settings-delete-confirm p { margin: 0 0 10px; color: rgba(235, 242, 248, 0.78); }
+
+.install-app-choice {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(111, 242, 255, 0.42);
+  border-radius: 999px;
+  background: rgba(5, 12, 22, 0.92);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.32), inset 0 0 18px rgba(111, 242, 255, 0.05);
+  color: #bffaff;
+  font: 600 10px/1 "Orbitron", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+.install-app-choice:hover,
+.install-app-choice:focus-visible {
+  border-color: var(--cyan);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.install-app-choice span { font-size: 16px; line-height: 0.8; }
+
+.install-help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(1, 4, 9, 0.78);
+  backdrop-filter: blur(10px);
+}
+.install-help-card {
+  width: min(420px, 100%);
+  padding: 28px;
+  border: 1px solid rgba(111, 242, 255, 0.35);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(10, 23, 37, 0.98), rgba(4, 9, 17, 0.99));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.62), inset 0 0 32px rgba(111, 242, 255, 0.04);
+  color: var(--text);
+}
+.install-help-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cyan);
+  border-radius: 14px;
+  background: rgba(111, 242, 255, 0.09);
+  color: var(--cyan);
+  font: 700 17px/1 "Orbitron", sans-serif;
+  box-shadow: 0 0 24px rgba(111, 242, 255, 0.14);
+}
+.install-help-kicker {
+  margin: 18px 0 7px !important;
+  color: var(--cyan) !important;
+  font: 600 9px/1 "Chakra Petch", sans-serif !important;
+  letter-spacing: 0.22em;
+}
+.install-help-card h2 {
+  margin: 0;
+  color: #f0fdff;
+  font: 700 19px/1.35 "Orbitron", sans-serif;
+}
+.install-help-card p,
+.install-help-card li {
+  color: rgba(224, 239, 248, 0.76);
+  font: 500 14px/1.55 "Rajdhani", sans-serif;
+}
+.install-help-card ol { margin: 18px 0 22px; padding-left: 22px; }
+.install-help-card li { padding: 3px 0 3px 5px; }
+.install-help-done {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid rgba(111, 242, 255, 0.4);
+  border-radius: 7px;
+  background: rgba(111, 242, 255, 0.08);
+  color: var(--cyan);
+  font: 600 10px/1 "Orbitron", sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.install-help-done:hover { border-color: var(--cyan); color: #fff; }
+
+@media (max-width: 640px) {
+  .install-app-choice { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); padding: 9px 12px; }
+  .install-help-card { padding: 24px 20px; }
+}
+
+@media print {
+  .install-app-choice,
+  .install-help-backdrop { display: none !important; }
+}

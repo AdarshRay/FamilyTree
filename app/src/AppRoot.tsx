@@ -4,6 +4,7 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { Dashboard } from "./screens/Dashboard";
 import { AccountSettings } from "./screens/AccountSettings";
 import { AccountMenu } from "./components/AccountMenu";
+import { InstallAppChoice } from "./components/InstallAppChoice";
 import { ShareTreeModal } from "./components/ShareTreeModal";
 import { TreeSettingsModal } from "./components/TreeSettingsModal";
 import { PublishWebsiteModal, type PublishableTree } from "./components/PublishWebsiteModal";
@@ -671,37 +672,43 @@ export default function AppRoot() {
     }
   };
 
-  if (loading) return <div className="app-shell auth-shell auth-loading">Loading family workspace...</div>;
+  if (loading) return <><div className="app-shell auth-shell auth-loading">Loading family workspace...</div><InstallAppChoice /></>;
 
   if (!user) {
     return (
-      <LoginScreen
-        busy={busy}
-        error={error}
-        onAuthenticated={signIn}
-        onCreateAccount={signUp}
-        onSocialAuthenticated={signInSocial}
-      />
+      <>
+        <LoginScreen
+          busy={busy}
+          error={error}
+          onAuthenticated={signIn}
+          onCreateAccount={signUp}
+          onSocialAuthenticated={signInSocial}
+        />
+        <InstallAppChoice />
+      </>
     );
   }
 
   if (showAccountSettings) {
     return (
-      <AccountSettings
-        user={accountUser(user)}
-        provider={user.provider}
-        githubConnection={githubConnection}
-        githubBusy={githubBusy}
-        githubError={githubError}
-        busy={busy}
-        error={error}
-        onBack={() => setShowAccountSettings(false)}
-        onUpdateProfile={updateProfile}
-        onConnectGithub={() => connectGithub().then(() => undefined)}
-        onDisconnectGithub={disconnectGithub}
-        onSignOut={signOut}
-        onDeleteAccount={removeAccount}
-      />
+      <>
+        <AccountSettings
+          user={accountUser(user)}
+          provider={user.provider}
+          githubConnection={githubConnection}
+          githubBusy={githubBusy}
+          githubError={githubError}
+          busy={busy}
+          error={error}
+          onBack={() => setShowAccountSettings(false)}
+          onUpdateProfile={updateProfile}
+          onConnectGithub={() => connectGithub().then(() => undefined)}
+          onDisconnectGithub={disconnectGithub}
+          onSignOut={signOut}
+          onDeleteAccount={removeAccount}
+        />
+        <InstallAppChoice />
+      </>
     );
   }
 
@@ -763,6 +770,7 @@ export default function AppRoot() {
   return (
     <>
       {mainScreen}
+      <InstallAppChoice />
 
       <ShareTreeModal
         open={Boolean(sharingTree)}
