@@ -4974,6 +4974,22 @@ details.editform[open] > summary.edit-hd {
   text-transform: uppercase;
 }
 .tlink-message { padding: 9px 11px; border: 1px solid rgba(115, 255, 176, 0.28); border-radius: 7px; color: #8effbd; font: 500 11px/1.4 "Chakra Petch", sans-serif; }
+.tlink-qr summary,
+.tlink-shared-branch summary { cursor: pointer; color: var(--cyan); font: 600 11px/1.3 "Chakra Petch", sans-serif; }
+.tlink-qr > div { display: flex; align-items: center; gap: 14px; padding-top: 12px; color: var(--muted); font: 500 11px/1.45 "Chakra Petch", sans-serif; }
+.tlink-qr img { width: 132px; height: 132px; padding: 7px; border-radius: 8px; background: #fff; image-rendering: pixelated; }
+.tlink-connection-card { display: grid; gap: 8px; padding: 10px; border: 1px solid rgba(111, 242, 255, 0.12); border-radius: 7px; background: rgba(111, 242, 255, 0.025); }
+.tlink-connection-card > .tlink-request { padding: 0; border: 0; background: transparent; }
+.tlink-disconnect-choice,
+.tlink-branch-content,
+.tlink-conflicts { display: grid; gap: 8px; color: var(--muted); font: 500 11px/1.4 "Chakra Petch", sans-serif; }
+.tlink-disconnect-choice { padding: 10px; border: 1px solid rgba(255, 119, 160, 0.28); border-radius: 6px; }
+.tlink-branch-content { padding: 10px 2px 2px; }
+.tlink-branch-content strong { color: #f0fdff; }
+.tlink-conflicts { margin-top: 3px; padding: 10px; border-left: 2px solid var(--magenta); background: rgba(255, 119, 160, 0.045); }
+.tlink-conflicts b { color: var(--magenta); }
+.tlink-conflicts em { color: var(--cyan); text-transform: capitalize; }
+.tlink-conflicts button { justify-self: start; }
 .tlink-profile-connect { display: grid; gap: 10px; }
 .tlink-profile-connect > .btn { width: 100%; }
 .tlink-profile-form { display: grid; gap: 10px; padding: 10px; border: 1px solid rgba(111, 242, 255, 0.14); border-radius: 7px; background: rgba(111, 242, 255, 0.035); }

@@ -37,6 +37,7 @@ import {
   type StructureEdits,
   type AddedChild,
   type AddedPerson,
+  type EffectiveNode,
 } from "./lib/structure";
 import {
   makeSnapshot,
@@ -56,10 +57,39 @@ import {
   publishDesktopSnapshot,
   restoreDesktopSnapshot,
 } from "./lib/desktop";
-import type { TLinkScope } from "./lib/backend";
+import type { TLinkBranch, TLinkScope } from "./lib/backend";
 
 const PANEL_W = 360; // detail panel width — keep focused nodes clear of it
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
+
+export interface SharedBranchMount {
+  localPersonId: string;
+  branch: TLinkBranch;
+}
+
+function mergeSharedBranches(root: EffectiveNode, mounts: SharedBranchMount[]): EffectiveNode {
+  const fromShared = (branch: TLinkBranch): EffectiveNode => ({
+    person: { ...branch.person, photo: branch.person.photoFile ?? null },
+    spouseSlots: branch.spouses.map((person) => ({
+      person: { ...person, photo: person.photoFile ?? null },
+      subSpouses: [],
+    })),
+    children: branch.children.map(fromShared),
+  });
+  const mergeNode = (node: EffectiveNode, mount: SharedBranchMount): EffectiveNode => {
+    const children: EffectiveNode[] = node.children.map((child) => mergeNode(child, mount));
+    const matches = node.person.id === mount.localPersonId
+      || node.spouseSlots.some((slot) => slot.person.id === mount.localPersonId);
+    if (!matches) return { ...node, children };
+    const remote = fromShared(mount.branch);
+    const existingIds = new Set(children.map((child) => child.person.id ?? child.person.name.toLowerCase()));
+    const newChildren = remote.children.filter((child) => !existingIds.has(child.person.id ?? child.person.name.toLowerCase()));
+    const spouseIds = new Set(node.spouseSlots.map((slot) => slot.person.id ?? slot.person.name.toLowerCase()));
+    const newSpouses = remote.spouseSlots.filter((slot) => !spouseIds.has(slot.person.id ?? slot.person.name.toLowerCase()));
+    return { ...node, spouseSlots: [...node.spouseSlots, ...newSpouses], children: [...children, ...newChildren] };
+  };
+  return mounts.reduce((tree, mount) => mergeNode(tree, mount), root);
+}
 
 /** Orthogonal path tracing a lineage from the hovered node up to the founders. */
 function lineagePathD(unions: PositionedUnion[]): string {
@@ -371,6 +401,7 @@ interface AppProps {
   /** Rendered at the end of the topbar toolrow (e.g. the account menu). */
   accountMenu?: ReactNode;
   onConnectTLink?: (localPersonId: string, tlinkId: string, scope: TLinkScope) => Promise<void> | void;
+  sharedBranches?: SharedBranchMount[];
 }
 
 export default function App({
@@ -384,6 +415,7 @@ export default function App({
   onOpenDashboard,
   accountMenu,
   onConnectTLink,
+  sharedBranches = [],
 }: AppProps = {}) {
   const canEdit = !PUBLIC_VIEW && canEditProp;
   const initialEdits = initialSnapshot ? normalizeSnapshot(initialSnapshot) : null;
@@ -391,7 +423,10 @@ export default function App({
   const [structure, setStructure] = useState<StructureEdits>(() => initialEdits?.structure ?? loadStructure());
   const [overrides, setOverrides] = useState<Overrides>(() => initialEdits?.overrides ?? loadOverrides());
   const [branchRoot, setBranchRoot] = useState<string | null>(null);
-  const effectiveFamily = useMemo(() => buildEffectiveFamily(family, structure, overrides), [family, overrides, structure]);
+  const effectiveFamily = useMemo(
+    () => mergeSharedBranches(buildEffectiveFamily(family, structure, overrides), sharedBranches),
+    [family, overrides, sharedBranches, structure],
+  );
   const existingNames = useMemo(() => collectNames(effectiveFamily), [effectiveFamily]);
   const fullLayout = useMemo(() => buildLayout(effectiveFamily), [effectiveFamily]);
   const fullPeople = useMemo(() => indexPeople(fullLayout.nodes), [fullLayout]);

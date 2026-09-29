@@ -2,6 +2,7 @@ import { type FamilyNode, type Gender } from "../data/family";
 import { buildLayout, CARD_H, CARD_W } from "./layout";
 import { makeSnapshot, normalizeSnapshot, type FamilyEditsSnapshot } from "./permanent";
 import { buildEffectiveFamily, emptyStructure, type EffectiveNode } from "./structure";
+import { effectiveFields, type PersonOverride } from "./store";
 import { supabaseClient } from "./supabase";
 import { desktopApi, getDesktopAuthRedirectUrl, openDesktopAuthUrl } from "./desktop";
 
@@ -38,12 +39,55 @@ export interface TLinkRequest {
 
 export interface TLinkConnection {
   id: string;
+  treeAId: string;
+  treeBId?: string;
   treeAName: string;
   treeBName?: string;
   personName: string;
   scope: TLinkScope;
   active: boolean;
+  disconnectedAt?: string;
+  retainCopy: boolean;
   createdAt: string;
+}
+
+export interface TLinkBranchPerson {
+  id?: string;
+  name: string;
+  gender: Gender;
+  dob?: string;
+  birthplace?: string;
+  occupation?: string;
+  notes?: string;
+  photoFile?: string;
+  photoData?: string;
+  photoStoragePath?: string;
+}
+
+export interface TLinkBranch {
+  person: TLinkBranchPerson;
+  spouses: TLinkBranchPerson[];
+  children: TLinkBranch[];
+}
+
+export interface TLinkBranchSnapshot {
+  connectionId: string;
+  sourceTreeId: string;
+  branch: TLinkBranch;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface TLinkConnectionEvent {
+  id: number;
+  connectionId: string;
+  action: "connected" | "paused" | "resumed" | "branch_synced" | "disconnected_retained";
+  createdAt: string;
+}
+
+export interface TLinkSharedBranchMount {
+  localPersonId: string;
+  branch: TLinkBranch;
 }
 
 export interface AuthSession {
@@ -284,6 +328,46 @@ export function listTreePeople(root: FamilyNode, snapshot: FamilyEditsSnapshot):
   return [...people].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function sharedPerson(person: FamilyNode["person"], override: PersonOverride | undefined): TLinkBranchPerson {
+  const fields = effectiveFields(person, override);
+  return {
+    id: person.id,
+    name: fields.name,
+    gender: fields.gender,
+    dob: fields.dob || undefined,
+    birthplace: fields.birthplace || undefined,
+    occupation: fields.occupation || undefined,
+    notes: fields.notes || undefined,
+    photoFile: fields.photoFile ?? person.photo ?? undefined,
+    photoData: fields.photoData,
+    photoStoragePath: fields.photoStoragePath,
+  };
+}
+
+/** Builds a descendant branch for every stable person ID. Spouses receive the
+ * same union and children with themselves as the branch root. */
+export function buildTLinkBranches(root: FamilyNode, snapshot: FamilyEditsSnapshot): Record<string, TLinkBranch> {
+  const identified = ensureTreePersonIds(root, snapshot);
+  const effective = buildEffectiveFamily(identified.root, identified.snapshot.structure, identified.snapshot.overrides);
+  const branches: Record<string, TLinkBranch> = {};
+  const convert = (node: EffectiveNode): TLinkBranch => {
+    const children = node.children.map(convert);
+    const people = [node.person, ...node.spouseSlots.flatMap((slot) => [slot.person, ...slot.subSpouses])];
+    const converted = people.map((person) => sharedPerson(person, identified.snapshot.overrides[person.name]));
+    converted.forEach((person, index) => {
+      if (!person.id) return;
+      branches[person.id] = {
+        person,
+        spouses: converted.filter((_, personIndex) => personIndex !== index),
+        children,
+      };
+    });
+    return branches[node.person.id!] ?? { person: converted[0], spouses: converted.slice(1), children };
+  };
+  convert(effective);
+  return branches;
+}
+
 function normalizeTreeRecord(tree: Partial<FamilyTreeRecord>): FamilyTreeRecord {
   const initialRoot = tree.root ?? founderTree(tree.name, "m");
   const createdAt = tree.createdAt ?? nowIso();
@@ -427,18 +511,98 @@ export async function listTLinkConnections(): Promise<TLinkConnection[]> {
   if (!client) return [];
   const { data, error } = await client
     .from("tree_connections")
-    .select("id,tree_a_name,tree_b_name,person_name,scope,active,created_at")
+    .select("id,tree_a_id,tree_b_id,tree_a_name,tree_b_name,person_name,scope,active,disconnected_at,retain_copy,created_at")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((connection) => ({
     id: connection.id,
+    treeAId: connection.tree_a_id,
+    treeBId: connection.tree_b_id ?? undefined,
     treeAName: connection.tree_a_name ?? "Family tree",
     treeBName: connection.tree_b_name ?? undefined,
     personName: connection.person_name ?? "Connected person",
     scope: connection.scope as TLinkScope,
     active: Boolean(connection.active),
+    disconnectedAt: connection.disconnected_at ?? undefined,
+    retainCopy: Boolean(connection.retain_copy),
     createdAt: connection.created_at,
   }));
+}
+
+export async function listTLinkBranchSnapshots(): Promise<TLinkBranchSnapshot[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("tlink_branch_snapshots")
+    .select("connection_id,source_tree_id,branch,revision,updated_at")
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    connectionId: row.connection_id,
+    sourceTreeId: row.source_tree_id,
+    branch: row.branch as unknown as TLinkBranch,
+    revision: Number(row.revision),
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function listTLinkConnectionEvents(): Promise<TLinkConnectionEvent[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("tlink_connection_events")
+    .select("id,connection_id,action,created_at")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: Number(row.id),
+    connectionId: row.connection_id,
+    action: row.action as TLinkConnectionEvent["action"],
+    createdAt: row.created_at,
+  }));
+}
+
+export async function listTLinkSharedBranchesForTree(treeId: string): Promise<TLinkSharedBranchMount[]> {
+  const [connections, snapshots] = await Promise.all([listTLinkConnections(), listTLinkBranchSnapshots()]);
+  return connections.flatMap((connection) => {
+    if (!connection.active || connection.disconnectedAt || connection.scope === "identity") return [];
+    if (connection.treeAId !== treeId && connection.treeBId !== treeId) return [];
+    const own = snapshots.find((snapshot) => snapshot.connectionId === connection.id && snapshot.sourceTreeId === treeId);
+    const remote = snapshots.find((snapshot) => snapshot.connectionId === connection.id && snapshot.sourceTreeId !== treeId);
+    if (!own?.branch.person.id || !remote) return [];
+    return [{ localPersonId: own.branch.person.id, branch: remote.branch }];
+  });
+}
+
+export function subscribeToTLinkBranchChanges(onChange: () => void): () => void {
+  const client = supabaseClient();
+  if (!client) return () => undefined;
+  const channel = client
+    .channel(`tlink-branches-${crypto.randomUUID()}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "tlink_branch_snapshots" }, onChange)
+    .subscribe();
+  return () => { void client.removeChannel(channel); };
+}
+
+export async function syncTLinkBranches(treeId: string, root: FamilyNode, snapshot: FamilyEditsSnapshot): Promise<void> {
+  const client = supabaseClient();
+  if (!client) return;
+  const { error } = await client.rpc("sync_tlink_branches", {
+    target_tree_id: treeId,
+    branches: buildTLinkBranches(root, snapshot),
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function disconnectTLinkConnection(connectionId: string, keepSharedCopy: boolean): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Tree connections require the online FamilyTree service.");
+  const { error } = await client.rpc("disconnect_tree_connection", {
+    target_connection_id: connectionId,
+    keep_shared_copy: keepSharedCopy,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function sendTLinkRequest(
@@ -763,6 +927,11 @@ export async function loadFamilyTree(treeId: string): Promise<FamilyTreeRecord |
         members: listTreePeople(root, snapshot),
       });
       if (identityError) throw new Error(identityError.message);
+      const { error: branchError } = await client.rpc("sync_tlink_branches", {
+        target_tree_id: treeId,
+        branches: buildTLinkBranches(root, snapshot),
+      });
+      if (branchError) throw new Error(branchError.message);
     }
     const stats = computeTreeStats(root, snapshot);
     return {
@@ -829,6 +998,11 @@ export async function saveFamilyTreeSnapshot(
     const { data: saved, error } = await update.select("updated_at").maybeSingle();
     if (error) throw new Error(error.message);
     if (!saved) throw new TreeSyncConflictError();
+    const { error: branchError } = await client.rpc("sync_tlink_branches", {
+      target_tree_id: treeId,
+      branches: buildTLinkBranches(existing.root as FamilyNode, nextSnapshot),
+    });
+    if (branchError) throw new Error(branchError.message);
     return saved.updated_at as string;
   }
 

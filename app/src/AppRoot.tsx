@@ -21,12 +21,14 @@ import {
   listFamilyTreeSharing,
   listFamilyTrees,
   listTLinkRequests,
+  listTLinkSharedBranchesForTree,
   loadFamilyTree,
   removeFamilyTreeInvitation,
   removeFamilyTreeMember,
   renameFamilyTree,
   saveFamilyTreeSnapshot,
   sendTLinkRequest,
+  subscribeToTLinkBranchChanges,
   signInWithPassword,
   signInWithSocialProvider,
   signOut as signOutBackend,
@@ -40,6 +42,7 @@ import {
   type TreeInviteInput,
   type TreeRole,
   type TreeSharing,
+  type TLinkSharedBranchMount,
   TreeSyncConflictError,
 } from "./lib/backend";
 import { onDesktopAuthCallbackUrl } from "./lib/desktop";
@@ -138,6 +141,7 @@ export default function AppRoot() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pendingTLinkCount, setPendingTLinkCount] = useState(0);
+  const [sharedBranches, setSharedBranches] = useState<TLinkSharedBranchMount[]>([]);
 
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [settingsTreeId, setSettingsTreeId] = useState<string | null>(null);
@@ -156,10 +160,19 @@ export default function AppRoot() {
     activeTreeRef.current = activeTree;
   }, [activeTree]);
 
+  useEffect(() => {
+    if (!activeTree) return;
+    return subscribeToTLinkBranchChanges(() => {
+      void listTLinkSharedBranchesForTree(activeTree.id).then(setSharedBranches).catch(() => undefined);
+    });
+  }, [activeTree?.id]);
+
   const refreshActiveTreeFromCloud = useCallback(async (force = false) => {
     const current = activeTreeRef.current;
     if (!current || (!force && savesInFlightRef.current > 0)) return;
     const latest = await loadFamilyTree(current.id);
+    const nextSharedBranches = await listTLinkSharedBranchesForTree(current.id);
+    setSharedBranches(nextSharedBranches);
     if (!latest || latest.updatedAt === current.updatedAt) return;
     activeTreeRef.current = latest;
     setActiveTree(latest);
@@ -577,6 +590,7 @@ export default function AppRoot() {
     try {
       const record = await loadFamilyTree(id);
       if (!record) throw new Error("That family tree could not be found.");
+      setSharedBranches(await listTLinkSharedBranchesForTree(id));
       setActiveTree(record);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open tree.");
@@ -764,6 +778,7 @@ export default function AppRoot() {
       treeId={activeTree.id}
       treeLabel={activeTree.name}
       family={activeTree.root}
+      sharedBranches={sharedBranches}
       initialSnapshot={activeTree.snapshot}
       snapshotRevision={activeTree.updatedAt}
       canEdit={activeTree.role !== "viewer"}
@@ -775,6 +790,7 @@ export default function AppRoot() {
       }}
       onOpenDashboard={() => {
         setActiveTree(null);
+        setSharedBranches([]);
         if (user) void refreshTrees(user).catch((err) => setError(err instanceof Error ? err.message : "Could not refresh trees."));
       }}
       onConnectTLink={(localPersonId, tlinkId, scope) => sendTLinkRequest(activeTree.id, localPersonId, tlinkId, scope)}
