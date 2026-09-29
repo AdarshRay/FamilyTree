@@ -2,6 +2,8 @@ export type Gender = "m" | "f";
 export type PersonRelation = "son" | "daughter" | "son-in-law" | "daughter-in-law";
 
 export interface Person {
+  /** Stable ID for this tree record. Connections map it to one canonical person. */
+  id?: string;
   name: string;
   gender: Gender;
   relation?: PersonRelation;

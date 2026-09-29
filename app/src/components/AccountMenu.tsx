@@ -7,10 +7,11 @@ interface Props {
   onSwitchTree?: () => void;
   onOpenAccountSettings?: () => void;
   onSignOut: () => void;
+  pendingTLinkCount?: number;
 }
 
 /** Small avatar chip in the topbar that opens the account popover. */
-export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignOut }: Props) {
+export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignOut, pendingTLinkCount = 0 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const hue = hueFor(user.email);
@@ -36,6 +37,7 @@ export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignO
         aria-label="Account menu"
       >
         {initialsOf(user.name || user.email)}
+        {pendingTLinkCount > 0 && <span className="acct-notification" aria-label={`${pendingTLinkCount} pending TLink requests`}>{Math.min(99, pendingTLinkCount)}</span>}
       </button>
 
       {open && (
@@ -68,7 +70,7 @@ export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignO
                 onOpenAccountSettings();
               }}
             >
-              ⚙ Account Settings
+              ⚙ Account Settings{pendingTLinkCount > 0 ? ` (${pendingTLinkCount})` : ""}
             </button>
           )}
           <button

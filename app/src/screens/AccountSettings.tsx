@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { AmbientStage } from "../components/AmbientStage";
 import { GithubIcon } from "../components/icons";
 import type { AccountUser } from "../data/mockAccount";
-import type { AuthProvider } from "../lib/backend";
+import type { AuthProvider, FamilyTreeSummary } from "../lib/backend";
 import { hueFor, initialsOf } from "../lib/avatar";
 import type { GitHubConnection } from "../lib/github";
+import { TLinkSettings } from "../components/TLinkSettings";
 
 interface Props {
   user: AccountUser;
   provider: AuthProvider;
+  trees: FamilyTreeSummary[];
   githubConnection: GitHubConnection | null;
   githubBusy?: boolean;
   githubError?: string;
@@ -38,6 +40,7 @@ function formatDate(value: string): string {
 export function AccountSettings({
   user,
   provider,
+  trees,
   githubConnection,
   githubBusy = false,
   githubError = "",
@@ -84,6 +87,16 @@ export function AccountSettings({
 
       <div className="dash-body settings-body">
         {error && <div className="dash-error">{error}</div>}
+
+        <section className="dash-section">
+          <div className="dash-section-head">
+            <div>
+              <div className="dash-eyebrow">Family identity</div>
+              <h2>TLink Connections</h2>
+            </div>
+          </div>
+          <TLinkSettings trees={trees} />
+        </section>
 
         <section className="dash-section">
           <div className="dash-section-head">

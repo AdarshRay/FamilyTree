@@ -56,6 +56,7 @@ import {
   publishDesktopSnapshot,
   restoreDesktopSnapshot,
 } from "./lib/desktop";
+import type { TLinkScope } from "./lib/backend";
 
 const PANEL_W = 360; // detail panel width — keep focused nodes clear of it
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
@@ -369,6 +370,7 @@ interface AppProps {
   onOpenDashboard?: () => void;
   /** Rendered at the end of the topbar toolrow (e.g. the account menu). */
   accountMenu?: ReactNode;
+  onConnectTLink?: (localPersonId: string, tlinkId: string, scope: TLinkScope) => Promise<void> | void;
 }
 
 export default function App({
@@ -381,6 +383,7 @@ export default function App({
   canEdit: canEditProp = true,
   onOpenDashboard,
   accountMenu,
+  onConnectTLink,
 }: AppProps = {}) {
   const canEdit = !PUBLIC_VIEW && canEditProp;
   const initialEdits = initialSnapshot ? normalizeSnapshot(initialSnapshot) : null;
@@ -953,13 +956,18 @@ export default function App({
 
   /* ---- Structural edits (add / remove people; persisted) ---- */
   const addChild = useCallback((unionPrimaryName: string, child: AddedChild) => {
+    const identifiedChild: AddedChild = {
+      ...child,
+      person: { ...child.person, id: child.person.id ?? crypto.randomUUID() },
+      spouse: child.spouse ? { ...child.spouse, id: child.spouse.id ?? crypto.randomUUID() } : undefined,
+    };
     rememberCurrentEdits();
     setStructure((prev) => {
       const next: StructureEdits = {
         ...prev,
         childrenOf: {
           ...prev.childrenOf,
-          [unionPrimaryName]: [...(prev.childrenOf[unionPrimaryName] ?? []), child],
+          [unionPrimaryName]: [...(prev.childrenOf[unionPrimaryName] ?? []), identifiedChild],
         },
       };
       structureRef.current = next;
@@ -969,11 +977,12 @@ export default function App({
 
   // Appends — a person can have multiple spouses (remarriage / step-parents).
   const addSpouse = useCallback((personName: string, sp: AddedPerson) => {
+    const identifiedSpouse = { ...sp, id: sp.id ?? crypto.randomUUID() };
     rememberCurrentEdits();
     setStructure((prev) => {
       const next: StructureEdits = {
         ...prev,
-        spouseOf: { ...prev.spouseOf, [personName]: [...(prev.spouseOf[personName] ?? []), sp] },
+        spouseOf: { ...prev.spouseOf, [personName]: [...(prev.spouseOf[personName] ?? []), identifiedSpouse] },
       };
       structureRef.current = next;
       return next;
@@ -993,11 +1002,12 @@ export default function App({
 
   // Insert a parent ABOVE a person (grows the tree upward; new top = founders).
   const addParentAbove = useCallback((childName: string, parent: AddedPerson) => {
+    const identifiedParent = { ...parent, id: parent.id ?? crypto.randomUUID() };
     rememberCurrentEdits();
     setStructure((prev) => {
       const next: StructureEdits = {
         ...prev,
-        parentsOf: { ...prev.parentsOf, [childName]: parent },
+        parentsOf: { ...prev.parentsOf, [childName]: identifiedParent },
       };
       structureRef.current = next;
       return next;
@@ -1689,6 +1699,7 @@ export default function App({
 
       <DetailPanel
         treeId={treeId}
+        onConnectTLink={onConnectTLink}
         entry={canEdit && editMode ? selectedEntry : null}
         overrides={overrides}
         editMode={canEdit && editMode}

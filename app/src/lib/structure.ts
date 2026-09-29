@@ -25,6 +25,7 @@ import { permanentEdits } from "./permanent";
 import type { Overrides } from "./store";
 
 export interface AddedPerson {
+  id?: string;
   name: string;
   gender: Gender;
   relation?: PersonRelation;
@@ -99,6 +100,7 @@ const resolveName = (s: StructureEdits, name: string | undefined): string | unde
   name ? (s.renames[name] ?? name) : undefined;
 
 const toPerson = (a: AddedPerson, s: StructureEdits): Person => ({
+  id: a.id,
   name: resolveName(s, a.name) ?? a.name,
   gender: a.gender,
   relation: a.relation,
@@ -242,7 +244,7 @@ export function buildEffectiveFamily(root: FamilyNode, s: StructureEdits, overri
     p = s.parentsOf[raw.person.name] ?? s.parentsOf[resolveName(s, raw.person.name) ?? ""]
   ) {
     seen.add(p.name);
-    raw = { person: { name: p.name, gender: p.gender, photo: null }, children: [raw] };
+    raw = { person: { id: p.id, name: p.name, gender: p.gender, photo: null }, children: [raw] };
   }
 
   return walk(raw, true);

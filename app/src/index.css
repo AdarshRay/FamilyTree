@@ -4043,6 +4043,7 @@ details.editform[open] > summary.edit-hd {
   pointer-events: auto;
 }
 .acct-chip {
+  position: relative;
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -4054,6 +4055,21 @@ details.editform[open] > summary.edit-hd {
   letter-spacing: 0.02em;
   cursor: pointer;
   transition: 0.18s ease;
+}
+.acct-notification {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid #07101b;
+  border-radius: 999px;
+  background: var(--magenta);
+  color: #180711;
+  font: 700 8px/1 "Orbitron", sans-serif;
 }
 .acct-chip:hover {
   filter: brightness(1.15);
@@ -4895,6 +4911,73 @@ details.editform[open] > summary.edit-hd {
 .settings-delete-confirm { margin-top: 14px; }
 .settings-delete-confirm p { margin: 0 0 10px; color: rgba(235, 242, 248, 0.78); }
 
+.tlink-card { display: grid; gap: 20px; }
+.tlink-id-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.tlink-code-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.tlink-code-wrap code {
+  max-width: 360px;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid rgba(111, 242, 255, 0.24);
+  border-radius: 7px;
+  background: rgba(111, 242, 255, 0.05);
+  color: var(--cyan);
+  font: 600 10px/1.2 "Chakra Petch", monospace;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tlink-workspace,
+.tlink-connect-form { display: grid; gap: 12px; }
+.tlink-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tlink-workspace > .settings-row-action { justify-self: start; }
+.settings-separator { height: 1px; background: rgba(111, 242, 255, 0.13); }
+.tlink-connect-form > .btn { justify-self: start; }
+.tlink-requests { display: grid; gap: 10px; }
+.tlink-requests h3 { margin: 0; color: #eefcff; font: 600 12px/1.2 "Orbitron", sans-serif; }
+.tlink-request {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid rgba(111, 242, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(111, 242, 255, 0.035);
+}
+.tlink-request > div:first-child { display: grid; gap: 4px; }
+.tlink-request strong { color: #f0fdff; font: 600 13px/1.2 "Rajdhani", sans-serif; }
+.tlink-request span { color: var(--muted); font: 500 11px/1.3 "Chakra Petch", sans-serif; }
+.tlink-request-actions { display: flex; gap: 7px; }
+.tlink-request-actions button {
+  padding: 7px 10px;
+  border: 1px solid rgba(111, 242, 255, 0.36);
+  border-radius: 6px;
+  background: rgba(111, 242, 255, 0.08);
+  color: var(--cyan);
+  cursor: pointer;
+  font: 600 9px/1 "Orbitron", sans-serif;
+  text-transform: uppercase;
+}
+.tlink-request-actions button.danger { border-color: rgba(255, 119, 160, 0.34); color: var(--magenta); }
+.tlink-history { color: var(--muted); font: 500 11px/1.4 "Chakra Petch", sans-serif; }
+.tlink-history summary { cursor: pointer; color: var(--cyan); }
+.tlink-history-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(111, 242, 255, 0.08); }
+.tlink-history-row em { text-transform: capitalize; }
+.tlink-history-actions { display: flex; align-items: center; gap: 8px; }
+.tlink-history-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--magenta);
+  cursor: pointer;
+  font: 600 9px/1 "Orbitron", sans-serif;
+  text-transform: uppercase;
+}
+.tlink-message { padding: 9px 11px; border: 1px solid rgba(115, 255, 176, 0.28); border-radius: 7px; color: #8effbd; font: 500 11px/1.4 "Chakra Petch", sans-serif; }
+.tlink-profile-connect { display: grid; gap: 10px; }
+.tlink-profile-connect > .btn { width: 100%; }
+.tlink-profile-form { display: grid; gap: 10px; padding: 10px; border: 1px solid rgba(111, 242, 255, 0.14); border-radius: 7px; background: rgba(111, 242, 255, 0.035); }
+
 .install-app-choice {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
@@ -4987,6 +5070,11 @@ details.editform[open] > summary.edit-hd {
 .install-help-done:hover { border-color: var(--cyan); color: #fff; }
 
 @media (max-width: 640px) {
+  .tlink-id-row,
+  .tlink-request { align-items: flex-start; flex-direction: column; }
+  .tlink-code-wrap { width: 100%; }
+  .tlink-code-wrap code { flex: 1; }
+  .tlink-grid { grid-template-columns: 1fr; }
   .install-app-choice { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); padding: 9px 12px; }
   .install-help-card { padding: 24px 20px; }
 }

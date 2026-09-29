@@ -20,11 +20,13 @@ import {
   inviteFamilyTreeMember,
   listFamilyTreeSharing,
   listFamilyTrees,
+  listTLinkRequests,
   loadFamilyTree,
   removeFamilyTreeInvitation,
   removeFamilyTreeMember,
   renameFamilyTree,
   saveFamilyTreeSnapshot,
+  sendTLinkRequest,
   signInWithPassword,
   signInWithSocialProvider,
   signOut as signOutBackend,
@@ -135,6 +137,7 @@ export default function AppRoot() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pendingTLinkCount, setPendingTLinkCount] = useState(0);
 
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [settingsTreeId, setSettingsTreeId] = useState<string | null>(null);
@@ -239,6 +242,19 @@ export default function AppRoot() {
       cancelled = true;
     };
   }, [refreshTrees]);
+
+  useEffect(() => {
+    if (!user) {
+      setPendingTLinkCount(0);
+      return;
+    }
+    const refresh = () => void listTLinkRequests()
+      .then((requests) => setPendingTLinkCount(requests.filter((request) => request.direction === "incoming" && request.status === "pending").length))
+      .catch(() => undefined);
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [user]);
 
   useEffect(() => {
     return onDesktopAuthCallbackUrl((callbackUrl) => {
@@ -693,14 +709,18 @@ export default function AppRoot() {
     return (
       <>
         <AccountSettings
-          user={accountUser(user)}
-          provider={user.provider}
+        user={accountUser(user)}
+        provider={user.provider}
+        trees={trees}
           githubConnection={githubConnection}
           githubBusy={githubBusy}
           githubError={githubError}
           busy={busy}
           error={error}
-          onBack={() => setShowAccountSettings(false)}
+        onBack={() => {
+          setShowAccountSettings(false);
+          void listTLinkRequests().then((requests) => setPendingTLinkCount(requests.filter((request) => request.direction === "incoming" && request.status === "pending").length)).catch(() => undefined);
+        }}
           onUpdateProfile={updateProfile}
           onConnectGithub={() => connectGithub().then(() => undefined)}
           onDisconnectGithub={disconnectGithub}
@@ -736,6 +756,7 @@ export default function AppRoot() {
       onOpenAccountSettings={() => setShowAccountSettings(true)}
       onOpenPublish={() => openPublish()}
       onSignOut={signOut}
+      pendingTLinkCount={pendingTLinkCount}
     />
   ) : (
     <App
@@ -756,12 +777,14 @@ export default function AppRoot() {
         setActiveTree(null);
         if (user) void refreshTrees(user).catch((err) => setError(err instanceof Error ? err.message : "Could not refresh trees."));
       }}
+      onConnectTLink={(localPersonId, tlinkId, scope) => sendTLinkRequest(activeTree.id, localPersonId, tlinkId, scope)}
       accountMenu={
         <AccountMenu
           user={accountUser(user)}
           onSwitchTree={() => setActiveTree(null)}
           onOpenAccountSettings={() => setShowAccountSettings(true)}
           onSignOut={signOut}
+          pendingTLinkCount={pendingTLinkCount}
         />
       }
     />

@@ -16,6 +16,36 @@ export interface AppUser {
   provider: AuthProvider;
 }
 
+export type TLinkScope = "identity" | "branch" | "collaboration";
+export type TLinkRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
+
+export interface TreePersonIdentity {
+  id: string;
+  name: string;
+}
+
+export interface TLinkRequest {
+  id: string;
+  direction: "incoming" | "outgoing";
+  sourceTreeId: string;
+  sourceTreeName: string;
+  sourceLocalPersonId: string;
+  sourcePersonName: string;
+  scope: TLinkScope;
+  status: TLinkRequestStatus;
+  createdAt: string;
+}
+
+export interface TLinkConnection {
+  id: string;
+  treeAName: string;
+  treeBName?: string;
+  personName: string;
+  scope: TLinkScope;
+  active: boolean;
+  createdAt: string;
+}
+
 export interface AuthSession {
   user: AppUser;
   accessToken?: string;
@@ -199,6 +229,7 @@ function coverNames(root: FamilyNode): string[] {
 function founderTree(name: string | undefined, gender: Gender | undefined): FamilyNode {
   return {
     person: {
+      id: crypto.randomUUID(),
       name: name?.trim() || "New Founder",
       gender: gender ?? "m",
       photo: null,
@@ -206,10 +237,59 @@ function founderTree(name: string | undefined, gender: Gender | undefined): Fami
   };
 }
 
+function ensureTreePersonIds(
+  rootValue: FamilyNode,
+  snapshotValue: FamilyEditsSnapshot,
+): { root: FamilyNode; snapshot: FamilyEditsSnapshot; changed: boolean } {
+  const root = structuredClone(rootValue);
+  const snapshot = structuredClone(normalizeSnapshot(snapshotValue));
+  let changed = false;
+  const identify = (person: { id?: string }) => {
+    if (!person.id) {
+      person.id = crypto.randomUUID();
+      changed = true;
+    }
+  };
+  const walk = (node: FamilyNode) => {
+    identify(node.person);
+    node.spouses?.forEach(identify);
+    node.children?.forEach(walk);
+  };
+  walk(root);
+  Object.values(snapshot.structure.childrenOf).flat().forEach((child) => {
+    identify(child.person);
+    if (child.spouse) identify(child.spouse);
+  });
+  Object.values(snapshot.structure.spouseOf).flat().forEach(identify);
+  Object.values(snapshot.structure.parentsOf).forEach(identify);
+  return { root, snapshot, changed };
+}
+
+export function listTreePeople(root: FamilyNode, snapshot: FamilyEditsSnapshot): TreePersonIdentity[] {
+  const identified = ensureTreePersonIds(root, snapshot);
+  const effective = buildEffectiveFamily(identified.root, identified.snapshot.structure, identified.snapshot.overrides);
+  const people = new Map<string, string>();
+  const add = (person: { id?: string; name: string }) => {
+    if (person.id) people.set(person.id, person.name);
+  };
+  const walk = (node: EffectiveNode) => {
+    add(node.person);
+    node.spouseSlots.forEach((slot) => {
+      add(slot.person);
+      slot.subSpouses.forEach(add);
+    });
+    node.children.forEach(walk);
+  };
+  walk(effective);
+  return [...people].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function normalizeTreeRecord(tree: Partial<FamilyTreeRecord>): FamilyTreeRecord {
-  const root = tree.root ?? founderTree(tree.name, "m");
+  const initialRoot = tree.root ?? founderTree(tree.name, "m");
   const createdAt = tree.createdAt ?? nowIso();
-  const snapshot = normalizeSnapshot(tree.snapshot);
+  const identified = ensureTreePersonIds(initialRoot, normalizeSnapshot(tree.snapshot));
+  const root = identified.root;
+  const snapshot = identified.snapshot;
   // Always recompute from root + snapshot rather than trusting a stored count —
   // that count silently goes stale the moment structural edits are saved.
   const stats = computeTreeStats(root, snapshot);
@@ -301,6 +381,124 @@ export async function getAuthSession(): Promise<AuthSession | null> {
   }
 
   return readJson<AuthSession | null>(SESSION_KEY, null);
+}
+
+export async function getMyTLinkId(): Promise<string> {
+  const client = supabaseClient();
+  if (!client) {
+    const session = readJson<AuthSession | null>(SESSION_KEY, null);
+    if (!session) throw new Error("Sign in to view your TLink ID.");
+    return `TLINK-LOCAL-${session.user.id.replace(/[^a-z0-9]/gi, "").slice(-12).toUpperCase()}`;
+  }
+  const { data: auth } = await client.auth.getUser();
+  if (!auth.user) throw new Error("Sign in to view your TLink ID.");
+  const { data, error } = await client.from("profiles").select("tlink_id").eq("id", auth.user.id).single();
+  if (error) throw new Error(error.message);
+  return data.tlink_id as string;
+}
+
+export async function listTLinkRequests(): Promise<TLinkRequest[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError) throw new Error(authError.message);
+  if (!auth.user) throw new Error("Sign in to view connection requests.");
+  const { data, error } = await client
+    .from("tlink_requests")
+    .select("id,sender_user_id,recipient_user_id,source_tree_id,source_local_person_id,source_tree_name,source_person_name,requested_scope,status,created_at")
+    .or(`sender_user_id.eq.${auth.user.id},recipient_user_id.eq.${auth.user.id}`)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((request) => ({
+    id: request.id,
+    direction: request.recipient_user_id === auth.user!.id ? "incoming" : "outgoing",
+    sourceTreeId: request.source_tree_id,
+    sourceTreeName: request.source_tree_name,
+    sourceLocalPersonId: request.source_local_person_id,
+    sourcePersonName: request.source_person_name,
+    scope: request.requested_scope as TLinkScope,
+    status: request.status as TLinkRequestStatus,
+    createdAt: request.created_at,
+  }));
+}
+
+export async function listTLinkConnections(): Promise<TLinkConnection[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("tree_connections")
+    .select("id,tree_a_name,tree_b_name,person_name,scope,active,created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((connection) => ({
+    id: connection.id,
+    treeAName: connection.tree_a_name ?? "Family tree",
+    treeBName: connection.tree_b_name ?? undefined,
+    personName: connection.person_name ?? "Connected person",
+    scope: connection.scope as TLinkScope,
+    active: Boolean(connection.active),
+    createdAt: connection.created_at,
+  }));
+}
+
+export async function sendTLinkRequest(
+  treeId: string,
+  localPersonId: string,
+  tlinkId: string,
+  scope: TLinkScope,
+): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Tree connections require the online FamilyTree service.");
+  const { error } = await client.rpc("send_tlink_request", {
+    target_tree_id: treeId,
+    target_local_person_id: localPersonId,
+    recipient_tlink_id: tlinkId.trim(),
+    connection_scope: scope,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function respondTLinkRequest(
+  requestId: string,
+  accept: boolean,
+  target?: { treeId: string; localPersonId: string },
+): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Tree connections require the online FamilyTree service.");
+  const { error } = await client.rpc("respond_tlink_request", {
+    target_request_id: requestId,
+    accept_request: accept,
+    target_tree_id: target?.treeId ?? null,
+    target_local_person_id: target?.localPersonId ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function cancelTLinkRequest(requestId: string): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Tree connections require the online FamilyTree service.");
+  const { error } = await client.rpc("cancel_tlink_request", { target_request_id: requestId });
+  if (error) throw new Error(error.message);
+}
+
+export async function setTLinkConnectionActive(connectionId: string, active: boolean): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Tree connections require the online FamilyTree service.");
+  const { error } = await client.rpc("set_tree_connection_active", {
+    target_connection_id: connectionId,
+    next_active: active,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function claimTreePerson(treeId: string, localPersonId: string): Promise<void> {
+  const client = supabaseClient();
+  if (!client) return;
+  const { error } = await client.rpc("claim_tree_person", {
+    target_tree_id: treeId,
+    target_local_person_id: localPersonId,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function signInWithPassword(identifier: string, password: string): Promise<AuthResult> {
@@ -548,14 +746,30 @@ export async function loadFamilyTree(treeId: string): Promise<FamilyTreeRecord |
       .maybeSingle();
     if (membershipError) throw new Error(membershipError.message);
 
-    const root = data.root as FamilyNode;
-    const snapshot = normalizeSnapshot(data.snapshot);
+    const identified = ensureTreePersonIds(data.root as FamilyNode, normalizeSnapshot(data.snapshot));
+    const root = identified.root;
+    const snapshot = identified.snapshot;
+    const role = (membership?.role as TreeRole | undefined) ?? (data.owner_id === user?.id ? "owner" : "viewer");
+    if (role !== "viewer") {
+      if (identified.changed) {
+        const { error: identitySaveError } = await client
+          .from("family_trees")
+          .update({ root, snapshot })
+          .eq("id", treeId);
+        if (identitySaveError) throw new Error(identitySaveError.message);
+      }
+      const { error: identityError } = await client.rpc("register_tree_people", {
+        target_tree_id: treeId,
+        members: listTreePeople(root, snapshot),
+      });
+      if (identityError) throw new Error(identityError.message);
+    }
     const stats = computeTreeStats(root, snapshot);
     return {
       id: data.id,
       name: data.name,
       ownerId: data.owner_id,
-      role: (membership?.role as TreeRole | undefined) ?? (data.owner_id === user?.id ? "owner" : "viewer"),
+      role,
       memberCount: stats.memberCount,
       generationCount: stats.generationCount,
       coverNames: data.cover_names ?? [],

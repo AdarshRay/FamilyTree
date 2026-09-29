@@ -5,6 +5,7 @@ import type { PersonEntry } from "../lib/layout";
 import type { Overrides, PersonOverride } from "../lib/store";
 import type { AddedChild, AddedPerson } from "../lib/structure";
 import { fileToScaledDataURL, savePhotoFile } from "../lib/image";
+import type { TLinkScope } from "../lib/backend";
 
 interface Props {
   entry: PersonEntry | null;
@@ -22,6 +23,7 @@ interface Props {
   onAddParentAbove: (childName: string, parent: AddedPerson) => void;
   onShowBranch?: (name: string) => void;
   treeId?: string;
+  onConnectTLink?: (localPersonId: string, tlinkId: string, scope: TLinkScope) => Promise<void> | void;
 }
 
 /** Merge base person fields with any runtime override. */
@@ -963,10 +965,38 @@ export function DetailPanel({
   onAddParentAbove,
   onShowBranch,
   treeId,
+  onConnectTLink,
 }: Props) {
   const open = !!entry;
   const ov = entry ? overrides[entry.person.name] : undefined;
   const eff = entry ? effective(entry.person, ov) : null;
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectId, setConnectId] = useState("");
+  const [connectScope, setConnectScope] = useState<TLinkScope>("identity");
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [connectMessage, setConnectMessage] = useState("");
+
+  useEffect(() => {
+    setConnectOpen(false);
+    setConnectId("");
+    setConnectScope("identity");
+    setConnectMessage("");
+  }, [entry?.person.id]);
+
+  const submitConnection = async () => {
+    if (!entry?.person.id || !connectId.trim() || !onConnectTLink) return;
+    setConnectBusy(true);
+    setConnectMessage("");
+    try {
+      await onConnectTLink(entry.person.id, connectId.trim(), connectScope);
+      setConnectId("");
+      setConnectMessage("Connection request sent.");
+    } catch (error) {
+      setConnectMessage(error instanceof Error ? error.message : "Could not send the connection request.");
+    } finally {
+      setConnectBusy(false);
+    }
+  };
 
   const profile = eff
     ? [
@@ -1008,6 +1038,34 @@ export function DetailPanel({
           </div>
           <div className="p-name">{eff.name}</div>
           <div className="p-gen">{GEN_LABEL[entry.gen] ?? `Gen ${entry.gen + 1}`}</div>
+
+          {editMode && onConnectTLink && entry.person.id && (
+            <div className="sect tlink-profile-connect">
+              <button type="button" className="btn" onClick={() => setConnectOpen((value) => !value)}>
+                {connectOpen ? "Close TLink" : "Connect with TLink ID"}
+              </button>
+              {connectOpen && (
+                <div className="tlink-profile-form">
+                  <label className="field">
+                    <span>Relative’s TLink ID</span>
+                    <input value={connectId} onChange={(event) => setConnectId(event.target.value.toUpperCase())} placeholder="TLINK-…" />
+                  </label>
+                  <label className="field">
+                    <span>Permission</span>
+                    <select value={connectScope} onChange={(event) => setConnectScope(event.target.value as TLinkScope)}>
+                      <option value="identity">Connect identity only</option>
+                      <option value="branch">Share connected branch</option>
+                      <option value="collaboration">Full tree collaboration</option>
+                    </select>
+                  </label>
+                  <button type="button" className="btn primary" disabled={connectBusy || !connectId.trim()} onClick={() => void submitConnection()}>
+                    {connectBusy ? "Sending…" : "Send request"}
+                  </button>
+                  {connectMessage && <div className="famhint">{connectMessage}</div>}
+                </div>
+              )}
+            </div>
+          )}
 
           {(profile.length > 0 || eff.notes) && (
             <div className="sect">

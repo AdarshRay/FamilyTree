@@ -37,6 +37,13 @@ describe("local backend destructive actions", () => {
     expect(await listFamilyTrees(user.id)).toHaveLength(0);
   });
 
+  it("assigns every new tree founder a permanent person ID", async () => {
+    const result = await createAccountWithPassword("identity@example.com", "password123", "Identity Owner");
+    const tree = await createFamilyTree(result.session!.user.id, { name: "Identity Tree", founderName: "Founder" });
+
+    expect(tree.root.person.id).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
   it("deletes the local account, session, and owned trees", async () => {
     const result = await createAccountWithPassword("owner@example.com", "password123", "Owner");
     await createFamilyTree(result.session!.user.id, { name: "Test Tree" });

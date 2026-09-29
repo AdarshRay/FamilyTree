@@ -18,6 +18,7 @@ interface Props {
   onOpenAccountSettings?: () => void;
   onOpenPublish?: () => void;
   onSignOut: () => void;
+  pendingTLinkCount?: number;
 }
 
 export function Dashboard({
@@ -33,6 +34,7 @@ export function Dashboard({
   onOpenAccountSettings,
   onOpenPublish,
   onSignOut,
+  pendingTLinkCount = 0,
 }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const firstName = (user.name || user.email).split(/\s+/)[0] || "there";
@@ -51,7 +53,7 @@ export function Dashboard({
           <div className="sub">Your Family Trees</div>
         </div>
         <div className="topbar-right">
-          <AccountMenu user={user} onOpenAccountSettings={onOpenAccountSettings} onSignOut={onSignOut} />
+          <AccountMenu user={user} onOpenAccountSettings={onOpenAccountSettings} onSignOut={onSignOut} pendingTLinkCount={pendingTLinkCount} />
         </div>
       </div>
 
