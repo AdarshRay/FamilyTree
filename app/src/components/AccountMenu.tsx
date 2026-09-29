@@ -6,12 +6,13 @@ interface Props {
   user: AccountUser;
   onSwitchTree?: () => void;
   onOpenAccountSettings?: () => void;
+  onOpenAdminConsole?: () => void;
   onSignOut: () => void;
   pendingTLinkCount?: number;
 }
 
 /** Small avatar chip in the topbar that opens the account popover. */
-export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignOut, pendingTLinkCount = 0 }: Props) {
+export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onOpenAdminConsole, onSignOut, pendingTLinkCount = 0 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const hue = hueFor(user.email);
@@ -71,6 +72,14 @@ export function AccountMenu({ user, onSwitchTree, onOpenAccountSettings, onSignO
               }}
             >
               ⚙ Account Settings{pendingTLinkCount > 0 ? ` (${pendingTLinkCount})` : ""}
+            </button>
+          )}
+          {onOpenAdminConsole && (
+            <button type="button" className="acct-item" role="menuitem" onClick={() => {
+              setOpen(false);
+              onOpenAdminConsole();
+            }}>
+              ◈ Admin Console
             </button>
           )}
           <button

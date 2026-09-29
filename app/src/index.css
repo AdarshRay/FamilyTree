@@ -4993,6 +4993,25 @@ details.editform[open] > summary.edit-hd {
 .tlink-profile-connect { display: grid; gap: 10px; }
 .tlink-profile-connect > .btn { width: 100%; }
 .tlink-profile-form { display: grid; gap: 10px; padding: 10px; border: 1px solid rgba(111, 242, 255, 0.14); border-radius: 7px; background: rgba(111, 242, 255, 0.035); }
+.admin-role-badge { padding: 6px 10px; border: 1px solid rgba(111, 242, 255, 0.3); border-radius: 999px; color: var(--cyan); font: 600 10px/1 "Chakra Petch", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.admin-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.admin-stats > div { display: grid; gap: 4px; padding: 18px; border: 1px solid rgba(111, 242, 255, 0.14); border-radius: 8px; background: rgba(7, 18, 31, .75); }
+.admin-stats strong { color: #f0fdff; font: 600 28px/1 "Orbitron", sans-serif; }
+.admin-stats span, .admin-user-card > span { color: var(--muted); font: 500 11px/1.4 "Chakra Petch", sans-serif; }
+.admin-access-card, .admin-role-list, .admin-user-card { display: grid; gap: 12px; }
+.admin-grant-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.admin-role-row, .admin-tree-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(111, 242, 255, .1); }
+.admin-role-row:last-child, .admin-tree-row:last-child { border-bottom: 0; }
+.admin-role-row > div, .admin-tree-row > div, .admin-user-card > div:first-child { display: grid; gap: 3px; }
+.admin-role-row strong, .admin-tree-row strong, .admin-user-card strong { color: #f0fdff; font: 600 13px/1.2 "Rajdhani", sans-serif; }
+.admin-role-row span, .admin-tree-row span, .admin-user-card > div span { color: var(--muted); font: 500 11px/1.3 "Chakra Petch", sans-serif; }
+.admin-role-row button.danger { border: 1px solid rgba(255, 119, 160, .35); border-radius: 5px; padding: 7px 10px; background: transparent; color: var(--magenta); }
+.admin-search { max-width: 520px; margin-bottom: 12px; }
+.admin-user-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-inline-edit { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.admin-inline-edit input { min-width: 0; }
+.admin-inline-edit button { border: 1px solid rgba(111, 242, 255, .3); border-radius: 5px; padding: 0 12px; background: rgba(111, 242, 255, .07); color: var(--cyan); }
+.admin-tree-list { display: grid; gap: 10px; }
 
 .install-app-choice {
   position: fixed;
@@ -5091,8 +5110,15 @@ details.editform[open] > summary.edit-hd {
   .tlink-code-wrap { width: 100%; }
   .tlink-code-wrap code { flex: 1; }
   .tlink-grid { grid-template-columns: 1fr; }
+  .admin-stats, .admin-user-grid { grid-template-columns: 1fr 1fr; }
+  .admin-grant-row { grid-template-columns: 1fr; }
+  .admin-role-row, .admin-tree-row { align-items: flex-start; flex-direction: column; }
   .install-app-choice { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); padding: 9px 12px; }
   .install-help-card { padding: 24px 20px; }
+}
+
+@media (max-width: 520px) {
+  .admin-stats, .admin-user-grid { grid-template-columns: 1fr; }
 }
 
 @media print {

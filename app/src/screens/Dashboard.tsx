@@ -16,6 +16,7 @@ interface Props {
   onOpenSharing?: (id: string) => void;
   onOpenTreeSettings?: (id: string) => void;
   onOpenAccountSettings?: () => void;
+  onOpenAdminConsole?: () => void;
   onOpenPublish?: () => void;
   onSignOut: () => void;
   pendingTLinkCount?: number;
@@ -32,6 +33,7 @@ export function Dashboard({
   onOpenSharing,
   onOpenTreeSettings,
   onOpenAccountSettings,
+  onOpenAdminConsole,
   onOpenPublish,
   onSignOut,
   pendingTLinkCount = 0,
@@ -53,7 +55,7 @@ export function Dashboard({
           <div className="sub">Your Family Trees</div>
         </div>
         <div className="topbar-right">
-          <AccountMenu user={user} onOpenAccountSettings={onOpenAccountSettings} onSignOut={onSignOut} pendingTLinkCount={pendingTLinkCount} />
+          <AccountMenu user={user} onOpenAccountSettings={onOpenAccountSettings} onOpenAdminConsole={onOpenAdminConsole} onSignOut={onSignOut} pendingTLinkCount={pendingTLinkCount} />
         </div>
       </div>
 

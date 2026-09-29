@@ -8,6 +8,27 @@ import { desktopApi, getDesktopAuthRedirectUrl, openDesktopAuthUrl } from "./des
 
 export type AuthProvider = "password" | "google" | "facebook" | "apple";
 export type TreeRole = "owner" | "editor" | "viewer";
+export type AdminRole = "super_admin" | "admin";
+
+export interface AdminUserRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  treeCount: number;
+  photoCount: number;
+}
+
+export interface AdminRoleRecord {
+  userId: string;
+  displayName: string;
+  email: string;
+  role: AdminRole;
+  isRoot: boolean;
+  createdAt: string;
+}
 
 export interface AppUser {
   id: string;
@@ -467,6 +488,70 @@ export async function getAuthSession(): Promise<AuthSession | null> {
   return readJson<AuthSession | null>(SESSION_KEY, null);
 }
 
+export async function getAdminAccess(): Promise<AdminRole | null> {
+  const client = supabaseClient();
+  if (!client) return null;
+  const { data, error } = await client.rpc("get_admin_access");
+  if (error) throw new Error(error.message);
+  return data === "super_admin" || data === "admin" ? data : null;
+}
+
+export async function listAdminUsers(): Promise<AdminUserRecord[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client.rpc("admin_list_users");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    userId: row.user_id as string,
+    displayName: row.display_name as string,
+    email: row.email as string,
+    avatarUrl: row.avatar_url as string | undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    treeCount: Number(row.tree_count),
+    photoCount: Number(row.photo_count),
+  }));
+}
+
+export async function listAdminRoles(): Promise<AdminRoleRecord[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client.rpc("admin_list_roles");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    userId: row.user_id as string,
+    displayName: row.display_name as string,
+    email: row.email as string,
+    role: row.role as AdminRole,
+    isRoot: Boolean(row.is_root),
+    createdAt: row.created_at as string,
+  }));
+}
+
+export async function grantAdminByEmail(email: string): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Administrator access requires the online FamilyTree service.");
+  const { error } = await client.rpc("admin_grant_by_email", { target_email: email.trim() });
+  if (error) throw new Error(error.message);
+}
+
+export async function revokeAdmin(userId: string): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Administrator access requires the online FamilyTree service.");
+  const { error } = await client.rpc("admin_revoke", { target_user_id: userId });
+  if (error) throw new Error(error.message);
+}
+
+export async function adminUpdateUserProfile(userId: string, displayName: string): Promise<void> {
+  const client = supabaseClient();
+  if (!client) throw new Error("Administrator access requires the online FamilyTree service.");
+  const { error } = await client.rpc("admin_update_user_profile", {
+    target_user_id: userId,
+    next_display_name: displayName.trim(),
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function getMyTLinkId(): Promise<string> {
   const client = supabaseClient();
   if (!client) {
@@ -889,6 +974,33 @@ export async function listFamilyTrees(userId: string): Promise<FamilyTreeSummary
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export async function listAdminTrees(): Promise<FamilyTreeSummary[]> {
+  const client = supabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("family_trees")
+    .select("id,name,owner_id,member_count,cover_names,root,snapshot,created_at,updated_at")
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((tree) => {
+    const root = tree.root as FamilyNode;
+    const snapshot = normalizeSnapshot(tree.snapshot);
+    const stats = computeTreeStats(root, snapshot);
+    return {
+      id: tree.id,
+      name: tree.name,
+      ownerId: tree.owner_id,
+      role: "editor" as const,
+      memberCount: stats.memberCount,
+      generationCount: stats.generationCount,
+      coverNames: tree.cover_names ?? [],
+      preview: computeTreePreview(root, snapshot),
+      createdAt: tree.created_at,
+      updatedAt: tree.updated_at,
+    };
+  });
+}
+
 export async function loadFamilyTree(treeId: string): Promise<FamilyTreeRecord | null> {
   const client = supabaseClient();
   if (client) {
@@ -913,8 +1025,10 @@ export async function loadFamilyTree(treeId: string): Promise<FamilyTreeRecord |
     const identified = ensureTreePersonIds(data.root as FamilyNode, normalizeSnapshot(data.snapshot));
     const root = identified.root;
     const snapshot = identified.snapshot;
-    const role = (membership?.role as TreeRole | undefined) ?? (data.owner_id === user?.id ? "owner" : "viewer");
-    if (role !== "viewer") {
+    const adminAccess = await getAdminAccess();
+    const isDirectTreeMember = Boolean(membership) || data.owner_id === user?.id;
+    const role = (membership?.role as TreeRole | undefined) ?? (data.owner_id === user?.id ? "owner" : adminAccess ? "editor" : "viewer");
+    if (isDirectTreeMember) {
       if (identified.changed) {
         const { error: identitySaveError } = await client
           .from("family_trees")

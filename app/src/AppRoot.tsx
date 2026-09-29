@@ -3,6 +3,7 @@ import App from "./App";
 import { LoginScreen } from "./screens/LoginScreen";
 import { Dashboard } from "./screens/Dashboard";
 import { AccountSettings } from "./screens/AccountSettings";
+import { AdminConsole } from "./screens/AdminConsole";
 import { AccountMenu } from "./components/AccountMenu";
 import { InstallAppChoice } from "./components/InstallAppChoice";
 import { ShareTreeModal } from "./components/ShareTreeModal";
@@ -17,6 +18,7 @@ import {
   deleteAccount,
   completeSocialProviderRedirect,
   getAuthSession,
+  getAdminAccess,
   inviteFamilyTreeMember,
   listFamilyTreeSharing,
   listFamilyTrees,
@@ -36,6 +38,7 @@ import {
   updateFamilyTreeMemberRole,
   updateUserProfile,
   type AppUser,
+  type AdminRole,
   type AuthProvider,
   type FamilyTreeRecord,
   type FamilyTreeSummary,
@@ -141,6 +144,9 @@ export default function AppRoot() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pendingTLinkCount, setPendingTLinkCount] = useState(0);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
+  const [showAdminConsole, setShowAdminConsole] = useState(false);
+  const [adminTreeMode, setAdminTreeMode] = useState(false);
   const [sharedBranches, setSharedBranches] = useState<TLinkSharedBranchMount[]>([]);
 
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -242,7 +248,13 @@ export default function AppRoot() {
       .then(async (session) => {
         if (cancelled) return;
         setUser(session?.user ?? null);
-        if (session?.user) await withStartupTimeout(refreshTrees(session.user), "Loading your family trees");
+        if (session?.user) {
+          const [, access] = await Promise.all([
+            withStartupTimeout(refreshTrees(session.user), "Loading your family trees"),
+            getAdminAccess(),
+          ]);
+          if (!cancelled) setAdminRole(access);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not restore session.");
@@ -356,7 +368,8 @@ export default function AppRoot() {
 
   const completeAuthenticatedSession = async (nextUser: AppUser) => {
     setUser(nextUser);
-    await refreshTrees(nextUser);
+    const [, access] = await Promise.all([refreshTrees(nextUser), getAdminAccess()]);
+    setAdminRole(access);
   };
 
   const signIn = async (identifier: string, password: string) => {
@@ -397,7 +410,8 @@ export default function AppRoot() {
       const result = await signInWithSocialProvider(provider);
       if (result.session) {
         setUser(result.session.user);
-        await refreshTrees(result.session.user);
+        const [, access] = await Promise.all([refreshTrees(result.session.user), getAdminAccess()]);
+        setAdminRole(access);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : `Could not start ${provider} login.`);
@@ -416,6 +430,9 @@ export default function AppRoot() {
       setError(err instanceof Error ? err.message : "Could not sign out cleanly.");
     }
     setUser(null);
+    setAdminRole(null);
+    setShowAdminConsole(false);
+    setAdminTreeMode(false);
     setTrees([]);
     setActiveTree(null);
     setSharingTreeId(null);
@@ -746,6 +763,22 @@ export default function AppRoot() {
     );
   }
 
+  if (showAdminConsole && adminRole && !activeTree) {
+    return (
+      <>
+        <AdminConsole
+          role={adminRole}
+          onBack={() => setShowAdminConsole(false)}
+          onOpenTree={async (treeId) => {
+            setAdminTreeMode(true);
+            await openTree(treeId);
+          }}
+        />
+        <InstallAppChoice />
+      </>
+    );
+  }
+
   const sharingTree = trees.find((tree) => tree.id === sharingTreeId) ?? null;
   const settingsTree = trees.find((tree) => tree.id === settingsTreeId) ?? null;
   const ownedTrees: PublishableTree[] = trees
@@ -768,6 +801,7 @@ export default function AppRoot() {
       onOpenSharing={openSharing}
       onOpenTreeSettings={openTreeSettings}
       onOpenAccountSettings={() => setShowAccountSettings(true)}
+      onOpenAdminConsole={adminRole ? () => setShowAdminConsole(true) : undefined}
       onOpenPublish={() => openPublish()}
       onSignOut={signOut}
       pendingTLinkCount={pendingTLinkCount}
@@ -791,6 +825,11 @@ export default function AppRoot() {
       onOpenDashboard={() => {
         setActiveTree(null);
         setSharedBranches([]);
+        if (adminTreeMode) {
+          setShowAdminConsole(true);
+          setAdminTreeMode(false);
+          return;
+        }
         if (user) void refreshTrees(user).catch((err) => setError(err instanceof Error ? err.message : "Could not refresh trees."));
       }}
       onConnectTLink={(localPersonId, tlinkId, scope) => sendTLinkRequest(activeTree.id, localPersonId, tlinkId, scope)}
@@ -799,6 +838,10 @@ export default function AppRoot() {
           user={accountUser(user)}
           onSwitchTree={() => setActiveTree(null)}
           onOpenAccountSettings={() => setShowAccountSettings(true)}
+          onOpenAdminConsole={adminRole ? () => {
+            setActiveTree(null);
+            setShowAdminConsole(true);
+          } : undefined}
           onSignOut={signOut}
           pendingTLinkCount={pendingTLinkCount}
         />
