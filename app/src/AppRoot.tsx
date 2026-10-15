@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import App from "./App";
+import { PasswordRecovery } from "./screens/PasswordRecovery";
+import { isPasswordRecoveryUrl } from "./lib/passwordRecovery";
+import { supabaseClient } from "./lib/supabase";
 import { LoginScreen } from "./screens/LoginScreen";
 import { Dashboard } from "./screens/Dashboard";
 import { AccountSettings } from "./screens/AccountSettings";
@@ -134,6 +137,8 @@ function withStartupTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
 
 /** Session/dashboard flow controller — sits above the tree canvas (`App`). */
 export default function AppRoot() {
+  const [recovering, setRecovering] = useState(() => isPasswordRecoveryUrl(window.location.href));
+  const [recoveryCallback, setRecoveryCallback] = useState<string>();
   const [user, setUser] = useState<AppUser | null>(null);
   const [trees, setTrees] = useState<FamilyTreeSummary[]>([]);
   const [activeTree, setActiveTree] = useState<FamilyTreeRecord | null>(null);
@@ -161,6 +166,15 @@ export default function AppRoot() {
   const activeTreeRef = useRef<FamilyTreeRecord | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const savesInFlightRef = useRef(0);
+
+  useEffect(() => {
+    const client = supabaseClient();
+    if (!client) return;
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setRecovering(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     activeTreeRef.current = activeTree;
@@ -283,6 +297,11 @@ export default function AppRoot() {
 
   useEffect(() => {
     return onDesktopAuthCallbackUrl((callbackUrl) => {
+      if (isPasswordRecoveryUrl(callbackUrl)) {
+        setRecoveryCallback(callbackUrl);
+        setRecovering(true);
+        return;
+      }
       if (isGitHubOAuthReturn(callbackUrl)) {
         setGithubBusy(true);
         setGithubError("");
@@ -718,6 +737,12 @@ export default function AppRoot() {
       setBusy(false);
     }
   };
+
+  if (recovering) return <PasswordRecovery key={recoveryCallback ?? "web"} callbackUrl={recoveryCallback} onDone={() => {
+    window.history.replaceState({}, "", new URL(".", window.location.href).toString());
+    setUser(null); setTrees([]); setActiveTree(null); setError("");
+    setRecoveryCallback(undefined); setRecovering(false);
+  }} />;
 
   if (loading) return <><div className="app-shell auth-shell auth-loading">Loading family workspace...</div><InstallAppChoice /></>;
 
