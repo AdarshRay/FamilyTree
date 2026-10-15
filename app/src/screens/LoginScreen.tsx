@@ -40,6 +40,7 @@ export function LoginScreen({
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const socialLoginReady = isSupabaseConfigured();
+  const emailAuthReady = import.meta.env.VITE_EMAIL_AUTH_ENABLED === "true";
 
   const submit = async () => {
     const trimmedEmail = email.trim();
@@ -83,10 +84,10 @@ export function LoginScreen({
 
           <div className="auth-brand">
             <h1>FAMILY TREE</h1>
-            <div className="sub">{mode === "recover" ? "Password recovery" : "Lineage Interface"}</div>
+            <div className="sub">{emailAuthReady ? (mode === "recover" ? "Password recovery" : "Lineage Interface") : "Sign in with Google to continue"}</div>
           </div>
 
-          <div className="auth-tabs" role="tablist">
+          {emailAuthReady && <><div className="auth-tabs" role="tablist">
             <button
               type="button"
               role="tab"
@@ -151,12 +152,14 @@ export function LoginScreen({
             </button>
             {mode === "signin" && socialLoginReady && <button type="button" className="btn" onClick={() => { setMode("recover"); setLocalError(""); setNotice(""); }}>Forgot password?</button>}
           </form>
+          </>}
+          {!emailAuthReady && error && <div className="auth-error" role="alert">{error}</div>}
 
-          {mode !== "recover" && <><div className="auth-divider">
+          {(mode !== "recover" || !emailAuthReady) && <>{emailAuthReady && <div className="auth-divider">
             <span />
             <em>or continue with</em>
             <span />
-          </div>
+          </div>}
 
           <div className="auth-social">
             <button
@@ -167,7 +170,7 @@ export function LoginScreen({
               onClick={() => void onSocialAuthenticated("google")}
             >
               <GoogleGlyph />
-              Google {!socialLoginReady && <span className="auth-social-soon">Offline</span>}
+              {busy ? "Connecting…" : "Continue with Google"} {!socialLoginReady && <span className="auth-social-soon">Offline</span>}
             </button>
           </div></>}
           <p className="auth-legal">

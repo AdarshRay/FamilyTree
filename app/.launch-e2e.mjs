@@ -57,11 +57,17 @@ try {
   must(createdTree.id === treeId, "created tree persisted");
   const ownerMembership = noError(await owner.from("family_tree_members").select("role").eq("tree_id", treeId).eq("user_id", ownerSession.user.id).single(), "owner membership trigger");
   must(ownerMembership.role === "owner", "owner role assigned");
+  const hidden = noError(await guest.from("family_trees").select("id").eq("id", treeId), "uninvited tree lookup");
+  must(hidden.length === 0, "uninvited user cannot see tree");
+  must(Boolean((await guest.rpc("admin_list_users")).error), "ordinary user cannot use admin RPC");
+  must(Boolean((await guest.rpc("admin_grant_by_email", { target_email: guestEmail })).error), "ordinary user cannot promote self to admin");
 
   const invite = noError(await owner.rpc("invite_family_tree_member", { target_tree_id: treeId, invite_email: guestEmail, invite_role: "viewer" }), "invite existing user");
   must(invite === "member", "existing invite becomes membership");
   const guestTrees = noError(await guest.from("family_trees").select("id,name").eq("id", treeId), "viewer reads shared tree");
   must(guestTrees.length === 1, "viewer tree visibility");
+  const deniedPhoto = await guest.storage.from("family-tree-photos").upload(`${treeId}/denied-viewer.jpg`, new Uint8Array([255,216,255,217]), { contentType: "image/jpeg" });
+  must(Boolean(deniedPhoto.error), "viewer photo upload blocked");
   const deniedUpdate = await guest.from("family_trees").update({ name: "Unauthorized Rename" }).eq("id", treeId).select("id");
   must(!deniedUpdate.error && deniedUpdate.data.length === 0, "viewer update blocked by RLS");
   const ownerUpdate = noError(await owner.from("family_trees").update({ name: "Launch E2E Tree Updated" }).eq("id", treeId).select("id").single(), "owner updates tree");

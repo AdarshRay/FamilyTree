@@ -35,9 +35,14 @@ The workflow runs the test suite, dependency audit, and production build before
 deploying `app/dist`. A production build without Supabase configuration stops
 with a visible configuration error instead of creating browser-only accounts.
 
-### Password recovery
+### Authentication and password recovery
 
-Sign In includes **Forgot password?**. Reset emails return to a dedicated password
+The launch screen uses Google sign-in only by default, so it does not require a
+separate email provider. Existing backend email accounts are retained. Set
+`VITE_EMAIL_AUTH_ENABLED=true` at build time only after configuring and verifying
+custom SMTP delivery to enable email sign-in, signup, and password recovery.
+
+When email authentication is enabled, Sign In includes **Forgot password?**. Reset emails return to a dedicated password
 form, which checks confirmation and requires at least eight characters. Expired
 links show an error and a route back to Sign In. With PKCE, open the reset email
 on the device and in the browser that requested it (or return to the Mac app if
