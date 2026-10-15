@@ -35,6 +35,32 @@ The workflow runs the test suite, dependency audit, and production build before
 deploying `app/dist`. A production build without Supabase configuration stops
 with a visible configuration error instead of creating browser-only accounts.
 
+### Authentication and password recovery
+
+The launch screen uses Google sign-in only by default, so it does not require a
+separate email provider. Existing backend email accounts are retained. Set
+`VITE_EMAIL_AUTH_ENABLED=true` at build time only after configuring and verifying
+custom SMTP delivery to enable email sign-in, signup, and password recovery.
+
+When email authentication is enabled, Sign In includes **Forgot password?**. Reset emails return to a dedicated password
+form, which checks confirmation and requires at least eight characters. Expired
+links show an error and a route back to Sign In. With PKCE, open the reset email
+on the device and in the browser that requested it (or return to the Mac app if
+the request started there).
+
+Configure the allowed authentication redirects in the deployed Supabase project
+to match `supabase/config.toml`, including the desktop recovery callback URLs.
+Verify custom SMTP delivery with an actual recipient before opening email signup
+to the public; a passing unit test does not verify inbox delivery.
+
+The live smoke test in `.launch-e2e.mjs` creates disposable users and checks
+password login/recovery, tree persistence, sharing permissions, TLink, photos,
+and account deletion. It requires `SUPABASE_SERVICE_ROLE_KEY` supplied securely
+to the process and the existing `.env.local` public client settings. Run it with
+`node .launch-e2e.mjs`. It never reads the Mac keychain. Do not commit the service
+key or put it in a `VITE_` variable. Google consent, email inbox delivery, and
+GitHub publication need separate interactive verification.
+
 ### Zero-cost guardrails
 
 - Keep the Supabase organization on the Free Plan. Free projects are restricted
